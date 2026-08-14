@@ -12,14 +12,41 @@ FluentPage {
     wrapperWidth: 900
 
     property bool active: false
+    property int historyCount: 0
+    property int todayTypedChars: 0
+    property int totalTypedChars: 0
+    property real historyAverageSpeed: 0
+    property real historyMaxSpeed: 0
+    property real historyAverageKeyAccuracy: 0
+    property var historyRecords: []
+    property var historyTrend: []
 
     readonly property int __xs: 4
     readonly property int __sm: 8
     readonly property int __md: 16
     readonly property int __lg: 24
 
+    function refreshHistoryRecords() {
+        if (!active || !appBridge) return;
+        historyCount = appBridge.typingHistoryCount;
+        historyRecords = appBridge.typingHistoryRecords;
+    }
+
+    function refreshHistorySummary() {
+        if (!active || !appBridge) return;
+        todayTypedChars = appBridge.todayTypedChars;
+        totalTypedChars = appBridge.totalTypedChars;
+        historyAverageSpeed = appBridge.typingHistoryAverageSpeed;
+        historyMaxSpeed = appBridge.typingHistoryMaxSpeed;
+        historyAverageKeyAccuracy = appBridge.typingHistoryAverageKeyAccuracy;
+        historyTrend = appBridge.typingHistoryDailyTrend;
+    }
+
     onActiveChanged: {
-        if (active && appBridge) appBridge.loadTypingHistory();
+        if (active) {
+            refreshHistoryRecords();
+            refreshHistorySummary();
+        }
     }
 
     // FluentPage 自带 Flickable — content 直接放入内建 ColumnLayout
@@ -72,8 +99,8 @@ FluentPage {
                         Layout.alignment: Qt.AlignVCenter
                         typography: Typography.BodyStrong
                         color: Theme.currentTheme.colors.primaryColor
-                        text: qsTr("%1 场").arg(appBridge ? appBridge.typingHistoryCount : 0)
-                        visible: appBridge && appBridge.loggedin && appBridge.typingHistoryCount > 0
+                        text: qsTr("%1 场").arg(root.historyCount)
+                        visible: appBridge && appBridge.loggedin && root.historyCount > 0
                     }
 
                     Button {
@@ -98,12 +125,12 @@ FluentPage {
 
                 Repeater {
                     model: [
-                        { label: qsTr("今日字数"), value: appBridge ? appBridge.todayTypedChars : 0, unit: qsTr("字"), icon: "ic_fluent_calendar_20_regular" },
-                        { label: qsTr("总字数"), value: appBridge ? appBridge.totalTypedChars : 0, unit: qsTr("字"), icon: "ic_fluent_text_number_list_20_regular" },
-                        { label: qsTr("平均速度"), value: (appBridge ? appBridge.typingHistoryAverageSpeed : 0).toFixed(0), unit: qsTr("字/分"), icon: "ic_fluent_speedometer_20_regular" },
-                        { label: qsTr("最高速度"), value: (appBridge ? appBridge.typingHistoryMaxSpeed : 0).toFixed(0), unit: qsTr("字/分"), icon: "ic_fluent_flash_20_regular" },
-                        { label: qsTr("平均键准"), value: (appBridge ? appBridge.typingHistoryAverageKeyAccuracy : 0).toFixed(1), unit: qsTr("%"), icon: "ic_fluent_target_arrow_20_regular" },
-                        { label: qsTr("总场次"), value: appBridge ? appBridge.typingHistoryCount : 0, unit: qsTr("场"), icon: "ic_fluent_ranking_20_regular" }
+                        { label: qsTr("今日字数"), value: root.todayTypedChars, unit: qsTr("字"), icon: "ic_fluent_calendar_20_regular" },
+                        { label: qsTr("总字数"), value: root.totalTypedChars, unit: qsTr("字"), icon: "ic_fluent_text_number_list_20_regular" },
+                        { label: qsTr("平均速度"), value: root.historyAverageSpeed.toFixed(0), unit: qsTr("字/分"), icon: "ic_fluent_speedometer_20_regular" },
+                        { label: qsTr("最高速度"), value: root.historyMaxSpeed.toFixed(0), unit: qsTr("字/分"), icon: "ic_fluent_flash_20_regular" },
+                        { label: qsTr("平均键准"), value: root.historyAverageKeyAccuracy.toFixed(1), unit: qsTr("%"), icon: "ic_fluent_target_arrow_20_regular" },
+                        { label: qsTr("总场次"), value: root.historyCount, unit: qsTr("场"), icon: "ic_fluent_ranking_20_regular" }
                     ]
 
                     Frame {
@@ -198,7 +225,7 @@ FluentPage {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 180
 
-                        property var trendData: appBridge ? appBridge.typingHistoryDailyTrend : []
+                        property var trendData: root.historyTrend
 
                         property var displayData: trendData || []
 
@@ -410,8 +437,8 @@ FluentPage {
                         Layout.minimumHeight: 60
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
-                        visible: appBridge && appBridge.typingHistoryRecords.length > 0
-                        model: appBridge ? appBridge.typingHistoryRecords : []
+                        visible: root.historyRecords.length > 0
+                        model: root.historyRecords
 
                         delegate: Rectangle {
                             width: historyList.width
@@ -501,7 +528,7 @@ FluentPage {
                         typography: Typography.Caption
                         color: Theme.currentTheme.colors.textSecondaryColor
                         text: qsTr("暂无历史记录，打完一局后会自动记录")
-                        visible: appBridge && appBridge.typingHistoryRecords.length === 0
+                        visible: root.historyRecords.length === 0
                     }
                 }
             }
@@ -541,6 +568,23 @@ FluentPage {
             registerBtn.enabled=true;
             if(success) registerDialog.close();
             else {registerErrorBar.text=message; registerErrorBar.visible=true}
+        }
+    }
+
+    Connections {
+        target: appBridge
+        enabled: root.active && appBridge !== null
+
+        function onTypingTotalsChanged() {
+            root.refreshHistorySummary();
+        }
+
+        function onTypingHistoryChanged() {
+            root.refreshHistoryRecords();
+        }
+
+        function onTypingHistorySummaryChanged() {
+            root.refreshHistorySummary();
         }
     }
 

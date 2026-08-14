@@ -135,6 +135,19 @@ def test_typing_page_renders_ziti_hint_from_bridge():
     assert "zitiHintText" in source
 
 
+def test_profile_history_refresh_is_disabled_while_page_is_inactive():
+    page_qml = QML_DIR / "pages/ProfilePage.qml"
+    source = page_qml.read_text(encoding="utf-8")
+
+    assert "property var historyRecords: []" in source
+    assert "property var historyTrend: []" in source
+    assert "enabled: root.active && appBridge !== null" in source
+    assert "model: root.historyRecords" in source
+    assert "property var trendData: root.historyTrend" in source
+    assert source.count("appBridge.typingHistoryRecords") == 1
+    assert source.count("appBridge.typingHistoryDailyTrend") == 1
+
+
 def test_text_load_hub_clears_pending_federated_flag_on_failure():
     """联邦 inline 加载失败或中途返回时，_pendingFederatedContent 必须清零。
 

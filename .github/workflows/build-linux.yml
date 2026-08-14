@@ -1,0 +1,80 @@
+name: 打包 - Linux
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: 打包 - Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: '0.9.26'
+
+      - name: 准备构建目录
+        run: |
+          mkdir -p build-src
+          cp -a main.py pyproject.toml uv.lock src resources RinUI build-src/
+
+      - name: 安装依赖
+        run: uv sync --frozen
+        working-directory: build-src
+
+      - name: 安装打包依赖
+        run: uv run python -m ensurepip --upgrade
+        working-directory: build-src
+
+      - name: 升级 Nuitka
+        run: uv pip install --upgrade nuitka --index-url https://pypi.org/simple
+        working-directory: build-src
+
+      - name: 运行打包
+        run: |
+          uv run python -m nuitka main.py \
+            --follow-imports \
+            --enable-plugin=pyside6 \
+            --include-qt-plugins=qml \
+            --include-package=RinUI \
+            --include-data-dir=RinUI=RinUI \
+            --output-dir=deployment \
+            --quiet \
+            --noinclude-qt-translations \
+            --standalone \
+            --noinclude-dlls=libQt6WebEngine* \
+            --include-data-dir=src/qml=src/qml \
+            --include-data-dir=resources/texts=resources/texts \
+            --include-data-files=resources/images/TypeTypeLogo.png=resources/images/TypeTypeLogo.png \
+            --include-data-files=resources/fonts/HarmonyOS_Sans_SC_Regular.ttf=resources/fonts/HarmonyOS_Sans_SC_Regular.ttf \
+            --include-data-files=resources/fonts/LXGWWenKai-Regular.ttf=resources/fonts/LXGWWenKai-Regular.ttf \
+            --include-data-dir=resources/trainer=resources/trainer \
+            --include-data-dir=resources/ziti=resources/ziti
+        working-directory: build-src
+
+      - name: 创建压缩包
+        run: |
+          DIST_DIR="build-src/deployment/main.dist"
+          if [ -d "$DIST_DIR" ]; then
+            tar -czf typetype-linux-amd64.tar.gz -C "$DIST_DIR" .
+          else
+            echo "未找到打包输出目录 $DIST_DIR"
+            exit 1
+          fi
+
+      - name: 上传 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: typetype-linux-amd64
+          path: typetype-linux-amd64.tar.gz

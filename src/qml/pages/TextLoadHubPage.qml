@@ -433,9 +433,11 @@ FluentPage {
 
     function startSegmentedSource(request, rp) {
         var fullText = !root.sliceModeChecked
-        var size = sliceSettingsPanel.sliceSize
-        var index = sliceSettingsPanel.startSlice
-        index = Math.max(1, Math.min(index, sliceSettingsPanel.totalSlices))
+        var s = rp || {}
+        var size = s.slice_size > 0 ? s.slice_size : sliceSettingsPanel.sliceSize
+        var index = s.current_slice > 0 ? s.current_slice : sliceSettingsPanel.startSlice
+        var totalSlices = size > 0 ? Math.max(1, Math.ceil(request.fullSize / size)) : 1
+        index = Math.max(1, Math.min(index, totalSlices))
         if (fullText) { size = request.fullSize; index = 1 }
 
         setupSliceCriteria(rp)

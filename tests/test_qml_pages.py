@@ -116,6 +116,25 @@ def test_text_load_hub_routes_text_sources_through_slice_launcher():
     assert "textLoadPanel.startSlice" not in custom_body
 
 
+def test_text_load_hub_restores_segment_size_before_loading_segmented_source():
+    page_qml = QML_DIR / "pages/TextLoadHubPage.qml"
+    source = page_qml.read_text(encoding="utf-8")
+
+    start = source.index("function startSegmentedSource(request, rp)")
+    end = source.index("function startMaterializedText", start)
+    body = source[start:end]
+
+    assert (
+        "var size = s.slice_size > 0 ? s.slice_size : sliceSettingsPanel.sliceSize"
+        in body
+    )
+    assert "Math.ceil(request.fullSize / size)" in body
+    assert (
+        "var index = s.current_slice > 0 ? s.current_slice : sliceSettingsPanel.startSlice"
+        in body
+    )
+
+
 def test_typing_page_handles_local_article_segment_load_failure():
     page_qml = QML_DIR / "pages/TypingPage.qml"
     source = page_qml.read_text(encoding="utf-8")

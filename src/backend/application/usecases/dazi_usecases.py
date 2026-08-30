@@ -45,7 +45,9 @@ def build_dazi_score_payload(
         "competitionType": int(DaziCompetitionType.from_code(competition_type)),
         "speed": float(score.get("speed", 0.0) or 0.0),
         "keystrokes": float(score.get("keyStroke", 0.0) or 0.0),
-        "maChang": code_length,
+        # 52dazi 官网的码长最多展示两位小数，并隐藏末尾的零。
+        # 传数值而不是固定格式字符串，可由服务端继续按该规则展示。
+        "maChang": round(code_length, 2),
         "wordNum": word_num,
         "typingTime": format_dazi_time(float(score.get("time", 0.0) or 0.0)),
         "huiGai": corrections,

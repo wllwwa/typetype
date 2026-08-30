@@ -65,6 +65,20 @@ def test_score_payload_contains_full_result_post_data() -> None:
     assert payload["inputMethod"] == "搜狗输入法"
 
 
+@pytest.mark.parametrize(
+    ("code_length", "expected"),
+    [(1.75881, 1.76), (2.6, 2.6), (2.0, 2.0)],
+)
+def test_score_payload_rounds_code_length_to_two_decimal_places(
+    code_length: float, expected: float
+) -> None:
+    payload = build_dazi_score_payload(
+        "标题", "正文", _score(codeLength=code_length), "输入法"
+    )
+
+    assert payload["maChang"] == expected
+
+
 def test_score_payload_handles_zero_time_and_zero_keystrokes() -> None:
     payload = build_dazi_score_payload(
         "标题", "正文", _score(time=0, key_stroke_count=0), "输入法"

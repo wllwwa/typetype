@@ -159,7 +159,7 @@
 - `FluentPage` 不使用 `layer.effect: OpacityMask`
 - **FluentPage 内容区子项必须用 `Layout.*` 而非 `anchors`**
 - **QQC 必须限定导入 `as QQC`**（避免与 RinUI 同名组件冲突）
-- 所有载文场景统一在 `TextLoadHubPage.qml` 中通过顶部 RinUI `Segmented` 切换 6 个来源 tab（本地文库/开源文库/练单器/晴发文/AI 推荐/自定义）；各来源共享同一组分片/达标组件，不再分散为多个独立入口页。开源文库 tab 按订阅源分组展示联邦聚合条目（`RepoEntriesPanel`，选中即载入；源组头可展开/收起/刷新/管理），订阅管理收敛到源组头弹窗 `RepoConfigDialog`（独立管理页 `ReposManagementPage` 已删除）
+- 所有载文场景统一在 `TextLoadHubPage.qml` 中通过顶部 RinUI `Segmented` 切换 7 个来源 tab（本地文库/开源文库/练单器/晴发文/AI 推荐/52dazi/自定义）；各来源共享同一组分片/达标组件，不再分散为多个独立入口页。开源文库 tab 按订阅源分组展示联邦聚合条目（`RepoEntriesPanel`，选中即载入；源组头可展开/收起/刷新/管理），订阅管理收敛到源组头弹窗 `RepoConfigDialog`（独立管理页 `ReposManagementPage` 已删除）。52dazi tab 单独按比赛类型提供今日极速杯/锦标赛/键神杯赛文入口，载入仍走独立 52dazi Worker 链路
 
 ---
 
@@ -173,7 +173,7 @@
 
 ## 5. 服务端接入（已移除）
 
-typetype-server 已随 [ADR-013](./docs/decisions/013-converge-to-three-repo-model.md) 全部移除：排行榜、成绩上传、登录注册、远程文本列表、`text_id` 回查、`base_url`/`api_timeout` 均删除。客户端收敛为三仓模型（typetype / open-typing-texts / ott-source-hub）空壳客户端，OTT 统一走 `source_repos` 订阅，晴发文/AI 为独立第三方即时源。
+typetype-server 已随 [ADR-013](./docs/decisions/013-converge-to-three-repo-model.md) 全部移除：自有排行榜、成绩上传、登录注册、远程文本列表、`text_id` 回查、`base_url`/`api_timeout` 均删除。客户端收敛为三仓模型（typetype / open-typing-texts / ott-source-hub）空壳客户端，OTT 统一走 `source_repos` 订阅，晴发文/AI 为独立第三方即时源。52dazi 是例外的独立第三方竞赛接入，使用独立 `dazi` 配置、密钥环会话和显式上传链路，不属于 typetype-server 排行榜。
 
 > 原服务端 API 文档已归档到 `docs/history/api-endpoints.md`。新增协议能力 → 先扩展 OTT Core / OTT Repo 协议（open-typing-texts 仓）再改 typetype；新增带认证实时源 → 参考晴发文完整独立 Pipeline。
 

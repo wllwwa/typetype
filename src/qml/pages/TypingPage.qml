@@ -545,6 +545,21 @@ Item {
             typingPage.syncSliceStatus();
             typingPage.syncSliceCriteria();
         }
+
+        function onDaziLoadFailed(message) {
+            _notifyError(qsTr("52dazi 载入失败"), message)
+        }
+
+        function onDaziUploadResult(success, message, ranking) {
+            if (success) {
+                var suffix = ranking && ranking.length > 0 ? qsTr("，排名第%1").arg(ranking) : ""
+                if (Window.window && Window.window.appNotificationManager)
+                    Window.window.appNotificationManager.show(
+                        Severity.Success, "", message + suffix, 2600)
+            } else {
+                _notifyError(qsTr("52dazi 成绩上传失败"), message)
+            }
+        }
     }
 
     Keys.onPressed: function (event) {
@@ -591,9 +606,20 @@ Item {
             Layout.maximumHeight: 56
             wenlaiLoading: appBridge ? appBridge.wenlaiLoading : false
             aiTextLoading: appBridge ? appBridge.aiTextLoading : false
+            daziLoading: appBridge ? appBridge.daziLoading : false
+            daziUploading: appBridge ? appBridge.daziUploading : false
+            daziScoreReady: appBridge ? appBridge.daziScoreReady : false
             onRequestAiText: {
                 if (appBridge)
                     appBridge.requestAiText();
+            }
+            onRequestLoadDaziText: {
+                if (appBridge)
+                    appBridge.loadDaziText(appBridge.daziCompetitionType)
+            }
+            onRequestUploadDaziScore: {
+                if (appBridge)
+                    appBridge.uploadDaziScore()
             }
         }
 

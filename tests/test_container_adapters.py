@@ -29,6 +29,7 @@ def _mock_bundles(runtime_config):
         wenlai_api_client=MagicMock(),
         local_text_loader=MagicMock(),
         token_store=MagicMock(),
+        dazi_client=MagicMock(),
     )
     repos = Repos(local_article=MagicMock(), ziti=MagicMock(), trainer=MagicMock())
     providers = Providers(
@@ -46,6 +47,7 @@ def _mock_bundles(runtime_config):
         trainer=MagicMock(),
         typing_totals=MagicMock(),
         typing_history=MagicMock(),
+        dazi=MagicMock(),
     )
     use_cases = UseCases(
         load_text=MagicMock(),
@@ -53,6 +55,8 @@ def _mock_bundles(runtime_config):
         load_local_article_segment=MagicMock(),
         load_trainer_segment=MagicMock(),
         generate_ai_text=MagicMock(),
+        load_dazi_text=MagicMock(),
+        upload_dazi_score=MagicMock(),
     )
     services = Services(
         char_stats=MagicMock(),

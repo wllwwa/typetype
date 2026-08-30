@@ -7,6 +7,9 @@ QQC.Pane {
     id: root
     property bool wenlaiLoading: false
     property bool aiTextLoading: false
+    property bool daziLoading: false
+    property bool daziUploading: false
+    property bool daziScoreReady: false
 
     padding: 8
 
@@ -17,6 +20,8 @@ QQC.Pane {
     signal requestShuffle
     signal requestOpenSliceConfig // 打开载文设置 Dialog
     signal requestSendText // 发文：复制文本段+元数据到剪贴板
+    signal requestLoadDaziText
+    signal requestUploadDaziScore
 
     // 自定义 Pane 的背景（跟随 RinUI 主题）
     background: Rectangle {
@@ -50,6 +55,32 @@ QQC.Pane {
             onClicked: {
                 root.requestSendText();
             }
+        }
+
+        Button {
+            width: 110
+            height: 36
+            anchors.verticalCenter: parent.verticalCenter
+            enabled: !root.daziLoading && !root.daziUploading
+            text: "52dazi赛文"
+            onClicked: root.requestLoadDaziText()
+        }
+
+        Button {
+            width: 110
+            height: 36
+            anchors.verticalCenter: parent.verticalCenter
+            enabled: root.daziScoreReady && !root.daziUploading
+            text: "上传成绩"
+            onClicked: root.requestUploadDaziScore()
+        }
+
+        BusyIndicator {
+            width: 24
+            height: 24
+            anchors.verticalCenter: parent.verticalCenter
+            running: root.daziLoading || root.daziUploading
+            visible: running
         }
 
         Button {

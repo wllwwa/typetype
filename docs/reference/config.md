@@ -1,5 +1,5 @@
 # RuntimeConfig 配置速查
-<!-- 状态: active | 最后验证: 2026-08-13 -->
+<!-- 状态: active | 最后验证: 2026-08-30 -->
 
 > 配置文件位于用户配置目录中的 `config.json`（schema_version=2，ADR-013）。首次启动时由 dataclass 默认值自动生成。macOS 用户配置目录为 `~/Library/Application Support/TypeType/`，Linux 为 `~/.config/typetype/`。
 
@@ -17,6 +17,7 @@
 | `source_repos` | `list` | 内置离线源 + 官方默认仓 | OTT Repo 源仓库订阅列表 |
 | `wenlai` | `dict` | 见下 | 晴发文服务配置 |
 | `ai` | `dict` | 见下 | AI 智能推荐配置 |
+| `dazi` | `dict` | 见下 | 52dazi 竞赛赛文和显式成绩上传配置 |
 | `text_session` | `dict` | 见下 | 载文会话配置 |
 | `ui` | `dict` | 见下 | UI 主题与外观配置 |
 
@@ -107,6 +108,19 @@
 | `ai.max_chars` | `int` | `300` | 单次生成最大字符数，下限 50 |
 
 AI API Key 不写入 JSON 配置，走系统密钥环 `ai_api_key`。
+
+## Dazi 子字段
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `dazi.base_url` | `str` | `https://www.jsxiaoshi.com/index.php` | 52dazi 实际 API 网关地址，仅允许 http/https |
+| `dazi.input_method` | `str` | `""` | 上传成绩使用的输入法名称，最多 20 个字符 |
+| `dazi.username` | `str` | `""` | 52dazi 用户名（非秘密信息） |
+| `dazi.display_name` | `str` | `""` | 52dazi 展示名（非秘密信息） |
+| `dazi.competition_type` | `int` | `0` | 默认竞赛：极速杯 `0` / 锦标赛 `2` / 键神杯 `4` |
+| `dazi.upload_enabled` | `bool` | `true` | 是否允许用户显式上传已完成的 Dazi 赛文成绩 |
+
+52dazi token 和 `PHPSESSID` 分别存储在系统密钥环 `dazi_token` / `dazi_cookie`，密码只用于登录请求，不持久化。
 
 ## text_session 子字段
 

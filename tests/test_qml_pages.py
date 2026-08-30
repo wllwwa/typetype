@@ -127,6 +127,35 @@ def test_text_load_hub_uses_expected_bridge_contract():
     )
 
 
+def test_text_load_hub_exposes_dazi_competition_source():
+    page_qml = QML_DIR / "pages/TextLoadHubPage.qml"
+    panel_qml = QML_DIR / "components/DaziSourcePanel.qml"
+    behaviors_js = QML_DIR / "helpers/TextSourceBehaviors.js"
+    page_source = page_qml.read_text(encoding="utf-8")
+    panel_source = panel_qml.read_text(encoding="utf-8")
+    behaviors_source = behaviors_js.read_text(encoding="utf-8")
+
+    assert panel_qml.exists()
+    assert '"dazi"' in page_source
+    assert 'SegmentedItem { text: qsTr("52dazi")' in page_source
+    assert "DaziSourcePanel" in page_source
+    assert "loadDaziText(competitionType)" in page_source
+    assert 'launchKind: "instant_source"' in behaviors_source
+    assert "daziLoading" in behaviors_source
+    for code in (0, 2, 4):
+        assert f"codeValue: {code}" in panel_source
+    assert 'text: qsTr("载入今日赛文")' in panel_source
+    assert "daziLoggedIn" in panel_source
+
+
+def test_dazi_source_panel_uses_valid_bridge_api():
+    panel_qml = QML_DIR / "components/DaziSourcePanel.qml"
+    refs = _get_qml_refs(panel_qml.read_text(encoding="utf-8"))
+    assert "daziLoggedIn" in refs and "daziLoggedIn" in BRIDGE_PROPERTIES
+    assert "daziCurrentUser" in refs and "daziCurrentUser" in BRIDGE_PROPERTIES
+    assert "daziLoading" in refs and "daziLoading" in BRIDGE_PROPERTIES
+
+
 def test_text_load_hub_routes_text_sources_through_slice_launcher():
     page_qml = QML_DIR / "pages/TextLoadHubPage.qml"
     source = page_qml.read_text(encoding="utf-8")

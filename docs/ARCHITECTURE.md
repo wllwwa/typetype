@@ -137,7 +137,9 @@ OTT segmented 大文本使用服务端定义的 segment 边界，并通过 `OttS
 
 #### 排行榜与成绩提交
 
-typetype-server 已随 [ADR-013](./decisions/013-converge-to-three-repo-model.md) 移除：客户端不再有服务端排行榜、成绩上传、账号体系与 `text_id` 回查。成绩统计均为本地（字符级 SQLite 统计 + 打字历史），载文来源不再区分排行榜资格。去中心化排行榜按 ADR-012 独立推进，本次未留占位。
+typetype-server 已随 [ADR-013](./decisions/013-converge-to-three-repo-model.md) 移除：客户端不再有 typetype 自有服务端排行榜、成绩上传、账号体系与 `text_id` 回查。成绩统计均为本地（字符级 SQLite 统计 + 打字历史），载文来源不再区分本地排行榜资格。
+
+52dazi 是独立的第三方竞赛服务，按用户显式操作提供单独的登录、竞赛赛文和成绩上传链路，不属于 typetype-server 或 OTT Repo。仅被 52dazi 载入且已完成的全文赛文具备上传资格；普通文本、分片、乱序和剪贴板文本均不会复用该资格。token、`PHPSESSID` 和密码不写入 `config.json`，密码也不缓存。
 
 ---
 
@@ -426,7 +428,10 @@ config.json.source_repos[]
 
 ```
 src/backend/config/runtime_config.py        # + SourceRepoEntry, SourceReposConfig, _parse_source_repos, 迁移逻辑
+src/backend/config/dazi_config.py            # 52dazi 非秘密配置
+src/backend/ports/dazi_provider.py            # 52dazi 外部服务 Port
 src/backend/integration/
+  ├─ dazi_client.py                           # 52dazi AES/HTTP 协议客户端
   ├─ ott_repo_manifest.py                   # RepoManifestCache + validate_repo_manifest
   ├─ ott_federation_provider.py             # OttFederationProvider + _InstanceClient + _RuleClient + _ScriptClient
   ├─ ott_rule_interpreter.py                # OttRuleInterpreter（L1 声明式规则解释器）
@@ -435,14 +440,16 @@ src/backend/integration/
   ├─ ott_script_runner.py                   # 子进程沙箱入口（资源限制 + 执行 + stdout JSON）
   └─ smart_router.py                        # SmartRouteSelector（按实时延迟/连通性在 CDN/镜像/代理前缀间选路）
 src/backend/presentation/adapters/
+  ├─ dazi_adapter.py                           # 52dazi 登录/载文/上传 Worker 适配
   └─ registry_adapter.py                    # RegistryAdapter（Qt 适配层）
 src/backend/config/container.py             # + manifest_cache, federation, registry_adapter
 src/qml/components/ReposManagementPanel.qml # 源仓库管理面板（独立页面承载）
 src/qml/components/RepoEntriesPanel.qml      # 开源文库条目列表面板
 src/qml/components/WenlaiSourcePanel.qml     # 晴发文即时源面板
 src/qml/components/AiSourcePanel.qml         # AI 推荐即时源面板
-src/qml/helpers/TextSourceBehaviors.js      # + repos 来源分派
-src/qml/pages/TextLoadHubPage.qml           # 6 来源 tab（本地/开源/练单/晴发文/AI/自定义）+ Segmented 切换
+src/qml/components/DaziSourcePanel.qml       # 52dazi 今日竞赛入口面板
+src/qml/helpers/TextSourceBehaviors.js      # + repos/dazi 来源分派
+src/qml/pages/TextLoadHubPage.qml           # 7 来源 tab（本地/开源/练单/晴发文/AI/52dazi/自定义）+ Segmented 切换
 src/qml/pages/ReposManagementPage.qml       # 订阅管理独立子页面
 ```
 

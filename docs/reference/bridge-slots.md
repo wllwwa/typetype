@@ -1,5 +1,5 @@
 # Bridge Slot / Signal 速查
-<!-- 状态: active | 最后验证: 2026-08-13 -->
+<!-- 状态: active | 最后验证: 2026-08-30 -->
 
 > Bridge 是 QML 能看到的唯一后端门面。全局对象名：`appBridge`
 > typetype-server 已移除（ADR-013）：登录/注册、服务端排行榜、远程文本列表、`base_url` 相关槽/信号/属性已删除。
@@ -37,6 +37,16 @@
 | `currentVersion` | `str` | 当前应用版本（`src/backend/version.py` `APP_VERSION`，constant） |
 | `updateAvailable` | `bool` | 是否有可用更新 |
 | `updateVersion` | `str` | 可用更新版本号 |
+| `daziLoggedIn` | `bool` | 52dazi 登录状态 |
+| `daziCurrentUser` | `str` | 52dazi 当前用户 |
+| `daziActive` | `bool` | 当前文本是否为 52dazi 赛文 |
+| `daziScoreReady` | `bool` | 已登录、允许上传且已完成当前 Dazi 全文赛文 |
+| `daziUploading` | `bool` | 52dazi 成绩上传中 |
+| `daziLoading` | `bool` | 52dazi 赛文加载中 |
+| `daziBaseUrl` | `str` | 52dazi API 网关地址 |
+| `daziInputMethod` | `str` | 上传成绩使用的输入法名称 |
+| `daziCompetitionType` | `int` | 默认竞赛类型（0/2/4） |
+| `daziUploadEnabled` | `bool` | 是否允许显式上传成绩 |
 
 ## Signals（QML 通过 Connections 监听）
 
@@ -68,6 +78,13 @@
 | `updateCheckFinished` | `(bool available, str version, str error)` | 更新检查完成 |
 | `updateDownloadProgress` | `(int percent)` | 更新下载进度（0-100） |
 | `updateStatusChanged` | `(str status)` | 更新状态变化（downloading/extracting/installing/done 或错误） |
+| `daziTextLoaded` | `(str content, str title, int competitionType)` | 52dazi 赛文加载完成 |
+| `daziLoadFailed` | `(str message)` | 52dazi 赛文加载失败 |
+| `daziLoginResult` | `(bool success, str message)` | 52dazi 登录结果 |
+| `daziLoginStateChanged` | 无 | 52dazi 登录状态变化 |
+| `daziConfigChanged` | 无 | 52dazi 非秘密配置变化 |
+| `daziUploadingChanged` | 无 | 52dazi 成绩上传状态变化 |
+| `daziUploadResult` | `(bool success, str message, str ranking)` | 52dazi 成绩上传结果 |
 
 ## Slots（QML 可调用的方法）
 
@@ -140,6 +157,12 @@
 | `checkForUpdate` | 无 | 手动检查更新（强制） |
 | `downloadAndInstallUpdate` | `(str version)` | 下载并安装指定版本 |
 | `dismissUpdate` | 无 | 关闭更新提示 |
+| `loginDazi` | `(str username, str password)` | 登录 52dazi；密码仅用于本次请求 |
+| `logoutDazi` | 无 | 清除 52dazi token、Cookie 和当前赛文资格 |
+| `loadDaziText` | `(int competitionType)` | 加载 52dazi 竞赛赛文（0/2/4，非法值回退 0） |
+| `updateDaziConfig` | `(str baseUrl, int competitionType, bool uploadEnabled)` | 更新并持久化 52dazi 非秘密配置 |
+| `updateDaziInputMethod` | `(str inputMethod)` | 更新上传成绩使用的输入法名称 |
+| `uploadDaziScore` | 无 | 显式上传当前已完成的 52dazi 全文赛文成绩 |
 
 ### OTT Repo 联邦目录 Slot（Phase 1）
 

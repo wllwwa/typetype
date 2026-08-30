@@ -78,6 +78,14 @@ var capabilities = {
         label: qsTr("AI 推荐"), icon: "ic_fluent_sparkle_20_regular"
     },
 
+    dazi: {
+        supportsRefresh: false, supportsSearch: false, supportsProgress: false,
+        supportsPreview: false, supportsShuffle: false, supportsEdit: false,
+        supportsCountValidation: false, needsContentPrefetch: false,
+        launchKind: "instant_source", tier: "competition",
+        label: qsTr("52dazi"), icon: "ic_fluent_trophy_20_regular"
+    },
+
     repos: {
         supportsRefresh: true,
         supportsSearch: true,
@@ -311,6 +319,7 @@ function isLoading(sourceKey, bridge, hub) {
     case "local":    return bridge.localArticleLoading
     case "trainer":  return bridge.trainerLoading
     case "repos":    return bridge.federatedEntriesLoading
+    case "dazi":     return bridge.daziLoading
     case "custom":   return false
     }
     return false

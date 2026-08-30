@@ -73,6 +73,9 @@ class TypingAdapter(QObject):
         self._slice_index: int | None = None
         # 分片完成时的 score_data 快照（在 _check_typing_complete 中捕获）
         self._last_slice_stats: dict | None = None
+        self._last_completed_score: dict | None = None
+        self._last_completed_text: str = ""
+        self._last_completed_title: str = ""
         self._is_paused = False
 
         # 信号发射缓存（避免无变化时重复触发 QML 重新评估）
@@ -170,6 +173,23 @@ class TypingAdapter(QObject):
             ts.capture_slow_chars()
 
             self._typing_service.flush_char_stats()
+
+            # 完成信号之后 QML 可能立即清空/切换文本，上传必须使用这一刻的快照。
+            s = self._typing_service.score_data
+            self._last_completed_score = {
+                "speed": s.speed,
+                "keyStroke": s.keyStroke,
+                "codeLength": s.codeLength,
+                "wrong_char_count": s.wrong_char_count,
+                "backspace_count": s.backspace_count,
+                "correction_count": s.correction_count,
+                "char_count": s.char_count,
+                "time": s.time,
+                "key_stroke_count": s.key_stroke_count,
+                "word_typing_rate": s.word_typing_rate,
+            }
+            self._last_completed_text = self._typing_service.plain_doc
+            self._last_completed_title = self._typing_service.text_title
 
             # 分片模式：在任何清理之前捕获 score_data 快照
             if self._slice_index is not None:
@@ -354,6 +374,9 @@ class TypingAdapter(QObject):
         self._typing_service.set_total_chars(len(plain_doc))
         self._typing_service.set_plain_doc(plain_doc)
         self._typing_service.clear()
+        self._last_completed_score = None
+        self._last_completed_text = ""
+        self._last_completed_title = ""
         self._reset_signal_cache()
         self._typing_service.state.is_started = False
         self._set_paused(False)
@@ -472,6 +495,18 @@ class TypingAdapter(QObject):
     @property
     def plain_doc(self) -> str:
         return self._typing_service.plain_doc
+
+    @property
+    def last_completed_score(self) -> dict | None:
+        return dict(self._last_completed_score) if self._last_completed_score else None
+
+    @property
+    def last_completed_text(self) -> str:
+        return self._last_completed_text
+
+    @property
+    def last_completed_title(self) -> str:
+        return self._last_completed_title
 
     def pauseTyping(self) -> bool:
         """暂停当前跟打：保留成绩，停止计时，但不锁定输入区（可被输入打断）。

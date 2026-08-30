@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from .adapters.font_adapter import FontAdapter
     from .adapters.update_adapter import UpdateAdapter
     from .adapters.ziti_adapter import ZitiAdapter
+    from .adapters.dazi_adapter import DaziAdapter
 
 from .text_load_coordinator import TextLoadCoordinator
 
@@ -196,6 +197,15 @@ class Bridge(QObject):
     updateCheckFinished = Signal(bool, str, str)  # (available, version, error)
     updateDownloadProgress = Signal(int)  # 0-100
     updateStatusChanged = Signal(str)  # 状态文本
+    # 52dazi 信号
+    daziTextLoaded = Signal(str, str, int)  # content, title, competition_type
+    daziLoadFailed = Signal(str)
+    daziLoginResult = Signal(bool, str)
+    daziLoginStateChanged = Signal()
+    daziConfigChanged = Signal()
+    daziUploadingChanged = Signal()
+    daziUploadResult = Signal(bool, str, str)  # success, message, ranking
+    daziScoreReadyChanged = Signal()
 
     def __init__(
         self,
@@ -217,6 +227,7 @@ class Bridge(QObject):
         text_slice_progress_store: "TextSliceProgressStore | None" = None,
         ott_segment_provider_cls: "type | None" = None,
         update_adapter: "UpdateAdapter | None" = None,
+        dazi_adapter: "DaziAdapter | None" = None,
     ):
         super().__init__()
         self._typing_adapter = typing_adapter
@@ -239,11 +250,13 @@ class Bridge(QObject):
         # OttSegmentProvider 类由 container.py 装配注入（复用同一实现，参数每次实例化）
         self._ott_segment_provider_cls = ott_segment_provider_cls
         self._update_adapter = update_adapter
+        self._dazi_adapter = dazi_adapter
         self._update_available = False
         self._update_version = ""
         self._is_special_platform = key_listener is not None
         self._lower_pane_focused = False
         self._text_id = 0
+        self._dazi_competition_type = 0
         self._pending_history_segment_label = ""
         self._pending_history_score_text = ""
         self._pending_restored_progress: dict | None = None
@@ -276,6 +289,7 @@ class Bridge(QObject):
         self._connect_font_signals()
         self._connect_key_listener()
         self._connect_update_signals()
+        self._connect_dazi_signals()
 
         self.specialPlatformConfirmed.emit(self._is_special_platform)
         log_info(f"[Bridge] 检测到平台特殊性: {self._is_special_platform}")
@@ -283,6 +297,9 @@ class Bridge(QObject):
     def _clear_text_id(self) -> None:
         """清空 text_id（分片/乱序/自定义文本不提交成绩）。"""
         self._coordinator.clear_text_id(self)
+        if self._dazi_adapter:
+            self._dazi_adapter.clear_active()
+            self.daziScoreReadyChanged.emit()
 
     def _clear_wenlai_active(self) -> None:
         """退出晴发文当前文本状态（切到其他来源时调用）。"""
@@ -302,6 +319,9 @@ class Bridge(QObject):
     def _reset_session_for_standard_load(self) -> None:
         """普通载文先清掉特殊来源会话，后续 textId 回填再确认资格。"""
         self._coordinator.reset_session_for_standard_load(self)
+        if self._dazi_adapter:
+            self._dazi_adapter.clear_active()
+            self.daziScoreReadyChanged.emit()
 
     def _connect_typing_signals(self) -> None:
         self._typing_adapter.typeSpeedChanged.connect(self.typeSpeedChanged.emit)
@@ -353,6 +373,7 @@ class Bridge(QObject):
                 str(text_id) if text_id and text_id > 0 else "1"
             )
         self._pending_history_score_text = self._build_current_score_plain_text()
+        self.daziScoreReadyChanged.emit()
         self.typingEnded.emit()
 
     def _on_typing_pause_changed(self) -> None:
@@ -619,6 +640,39 @@ class Bridge(QObject):
         self._update_adapter.downloadProgress.connect(self.updateDownloadProgress.emit)
         self._update_adapter.statusChanged.connect(self.updateStatusChanged.emit)
 
+    def _connect_dazi_signals(self) -> None:
+        if not self._dazi_adapter:
+            return
+        self._dazi_adapter.textLoaded.connect(self._on_dazi_text_loaded)
+        self._dazi_adapter.loadFailed.connect(self.daziLoadFailed.emit)
+        self._dazi_adapter.loginResult.connect(self.daziLoginResult.emit)
+        self._dazi_adapter.loginStateChanged.connect(self.daziLoginStateChanged.emit)
+        self._dazi_adapter.configChanged.connect(self._on_dazi_config_changed)
+        self._dazi_adapter.uploadingChanged.connect(self.daziUploadingChanged.emit)
+        self._dazi_adapter.uploadResult.connect(self.daziUploadResult.emit)
+
+    def _on_dazi_config_changed(self) -> None:
+        self.daziConfigChanged.emit()
+        self.daziLoginStateChanged.emit()
+        self.daziScoreReadyChanged.emit()
+
+    def _on_dazi_text_loaded(
+        self, text: str, title: str, competition_type: int
+    ) -> None:
+        """将 52dazi 赛文接入普通跟打会话，并保留上传身份。"""
+        if self._typing_adapter.is_slice_mode():
+            self.exitSliceMode()
+        self._clear_wenlai_active()
+        self._clear_local_article_active()
+        self._clear_trainer_active()
+        self._typing_adapter.prepare_for_text_load()
+        self._typing_adapter.setup_custom_session("dazi")
+        self._typing_adapter.setTextTitle(title)
+        self._dazi_competition_type = competition_type
+        self.windowTitleChanged.emit()
+        self.daziTextLoaded.emit(text, title, competition_type)
+        self.textLoaded.emit(text, -1, title)
+
     def _on_update_check_finished(
         self, available: bool, version: str, error: str
     ) -> None:
@@ -808,6 +862,52 @@ class Bridge(QObject):
     @Property(int, notify=textIdChanged)
     def textId(self) -> int:
         return self._text_id
+
+    @Property(bool, notify=daziLoginStateChanged)
+    def daziLoggedIn(self) -> bool:
+        return self._dazi_adapter.logged_in if self._dazi_adapter else False
+
+    @Property(str, notify=daziLoginStateChanged)
+    def daziCurrentUser(self) -> str:
+        return self._dazi_adapter.current_user if self._dazi_adapter else ""
+
+    @Property(bool, notify=daziUploadingChanged)
+    def daziUploading(self) -> bool:
+        return self._dazi_adapter.uploading if self._dazi_adapter else False
+
+    @Property(bool, notify=daziConfigChanged)
+    def daziActive(self) -> bool:
+        return self._dazi_adapter.active if self._dazi_adapter else False
+
+    @Property(bool, notify=daziScoreReadyChanged)
+    def daziScoreReady(self) -> bool:
+        return bool(
+            self._dazi_adapter
+            and self._dazi_adapter.logged_in
+            and self._dazi_adapter.active
+            and self._dazi_adapter.config.upload_enabled
+            and self._typing_adapter.last_completed_score
+        )
+
+    @Property(str, notify=daziConfigChanged)
+    def daziBaseUrl(self) -> str:
+        return self._dazi_adapter.config.base_url if self._dazi_adapter else ""
+
+    @Property(str, notify=daziConfigChanged)
+    def daziInputMethod(self) -> str:
+        return self._dazi_adapter.config.input_method if self._dazi_adapter else ""
+
+    @Property(int, notify=daziConfigChanged)
+    def daziCompetitionType(self) -> int:
+        return self._dazi_adapter.config.competition_type if self._dazi_adapter else 0
+
+    @Property(bool, notify=daziConfigChanged)
+    def daziUploadEnabled(self) -> bool:
+        return self._dazi_adapter.config.upload_enabled if self._dazi_adapter else True
+
+    @Property(bool, notify=daziConfigChanged)
+    def daziLoading(self) -> bool:
+        return self._dazi_adapter.loading if self._dazi_adapter else False
 
     @Property(bool, notify=scriptsEnabledChanged)
     def scriptsEnabled(self) -> bool:
@@ -1045,6 +1145,9 @@ class Bridge(QObject):
         self._clear_local_article_active()
         self._clear_trainer_active()
         self._typing_adapter.prepare_for_text_load()
+        if self._dazi_adapter:
+            self._dazi_adapter.clear_active()
+            self.daziScoreReadyChanged.emit()
         self._coordinator.pending_standard_source_key = ""
         self._text_adapter.loadTextFromClipboard()
         # 设置会话状态机
@@ -1100,6 +1203,51 @@ class Bridge(QObject):
     @Slot(result=str)
     def getScorePlainText(self) -> str:
         return self._build_current_score_plain_text()
+
+    @Slot(str, str)
+    def loginDazi(self, username: str, password: str) -> None:
+        if self._dazi_adapter:
+            self._dazi_adapter.login(username, password)
+
+    @Slot()
+    def logoutDazi(self) -> None:
+        if self._dazi_adapter:
+            self._dazi_adapter.logout()
+            self.daziScoreReadyChanged.emit()
+
+    @Slot(int)
+    def loadDaziText(self, competition_type: int) -> None:
+        if self._dazi_adapter:
+            self._dazi_adapter.loadText(competition_type)
+            self.daziScoreReadyChanged.emit()
+
+    @Slot(str, int, bool)
+    def updateDaziConfig(
+        self, base_url: str, competition_type: int, upload_enabled: bool
+    ) -> None:
+        if self._dazi_adapter:
+            self._dazi_adapter.updateConfig(base_url, competition_type, upload_enabled)
+
+    @Slot(str)
+    def updateDaziInputMethod(self, input_method: str) -> None:
+        if self._dazi_adapter:
+            self._dazi_adapter.updateInputMethod(input_method)
+
+    @Slot()
+    def uploadDaziScore(self) -> None:
+        if not self._dazi_adapter:
+            self.daziUploadResult.emit(False, "52dazi 功能未初始化", "")
+            return
+        score = self._typing_adapter.last_completed_score
+        if not score or not self._dazi_adapter.active:
+            self.daziUploadResult.emit(False, "请先完成一篇 52dazi 赛文", "")
+            return
+        self._dazi_adapter.uploadScore(
+            self._typing_adapter.last_completed_title,
+            self._typing_adapter.last_completed_text,
+            score,
+            self._dazi_competition_type,
+        )
 
     @Slot()
     def copyScoreMessage(self) -> None:
@@ -1847,6 +1995,9 @@ class Bridge(QObject):
         self._clear_wenlai_active()
         self._clear_local_article_active()
         self._clear_trainer_active()
+        if self._dazi_adapter:
+            self._dazi_adapter.clear_active()
+            self.daziScoreReadyChanged.emit()
         self._coordinator._visited_slices.clear()
         self.sliceModeChanged.emit()
         self._load_current_slice()

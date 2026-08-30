@@ -18,6 +18,7 @@ from .app_paths import (
 )
 from ..utils.logger import log_error, log_info
 from .text_source_config import TextSourceConfig, TextSourceEntry
+from .dazi_config import DaziConfig
 
 
 @dataclass
@@ -302,6 +303,7 @@ class RuntimeConfig:
         default_factory=SourceRefreshOverridesConfig
     )
     ai: AiConfig = field(default_factory=AiConfig)
+    dazi: DaziConfig = field(default_factory=DaziConfig)
     text_session: TextSessionConfig = field(default_factory=TextSessionConfig)
     ui: dict[str, Any] = field(
         default_factory=dict
@@ -747,6 +749,18 @@ class RuntimeConfig:
             max_chars=cls._safe_int(ai_data.get("max_chars"), 300),
         )
 
+        dazi_data = data.get("dazi", {})
+        if not isinstance(dazi_data, dict):
+            dazi_data = {}
+        dazi = DaziConfig(
+            base_url=cls._safe_str(dazi_data.get("base_url"), DaziConfig().base_url),
+            input_method=cls._safe_str(dazi_data.get("input_method"), ""),
+            username=cls._safe_str(dazi_data.get("username"), ""),
+            display_name=cls._safe_str(dazi_data.get("display_name"), ""),
+            competition_type=cls._safe_int(dazi_data.get("competition_type"), 0),
+            upload_enabled=cls._safe_bool(dazi_data.get("upload_enabled"), True),
+        )
+
         ui_data = data.get("ui", {})
         if not isinstance(ui_data, dict):
             ui_data = {}
@@ -769,6 +783,7 @@ class RuntimeConfig:
             source_repos=source_repos,
             source_refresh_overrides=source_refresh_overrides,
             ai=ai,
+            dazi=dazi,
             text_session=text_session,
             ui=ui_data,
         )
@@ -1169,6 +1184,7 @@ class RuntimeConfig:
             self.source_repos = updated.source_repos
             self.source_refresh_overrides = updated.source_refresh_overrides
             self.ai = updated.ai
+            self.dazi = updated.dazi
             self.text_session = updated.text_session
             self.ui = updated.ui
 
@@ -1249,6 +1265,14 @@ class RuntimeConfig:
                 "timeout": self.ai.timeout,
                 "max_chars": self.ai.max_chars,
             },
+            "dazi": {
+                "base_url": self.dazi.base_url,
+                "input_method": self.dazi.input_method,
+                "username": self.dazi.username,
+                "display_name": self.dazi.display_name,
+                "competition_type": self.dazi.competition_type,
+                "upload_enabled": self.dazi.upload_enabled,
+            },
             "text_session": {
                 "small_file_threshold": self.text_session.small_file_threshold,
                 "full_shuffle_threshold": self.text_session.full_shuffle_threshold,
@@ -1305,6 +1329,37 @@ class RuntimeConfig:
             )
         if strict_length is not None:
             self.wenlai.strict_length = strict_length
+        self._save_to_file()
+
+    def update_dazi_config(
+        self,
+        *,
+        base_url: str | None = None,
+        input_method: str | None = None,
+        competition_type: int | None = None,
+        upload_enabled: bool | None = None,
+    ) -> None:
+        """更新 52dazi 非秘密配置并持久化。"""
+        if base_url is not None:
+            self.dazi.base_url = base_url
+        if input_method is not None:
+            self.dazi.input_method = input_method
+        if competition_type is not None:
+            self.dazi.competition_type = competition_type
+        if upload_enabled is not None:
+            self.dazi.upload_enabled = upload_enabled
+        self.dazi.__post_init__()
+        self._save_to_file()
+
+    def update_dazi_user(self, username: str, display_name: str) -> None:
+        """保存 52dazi 账号展示信息（密码/token 不进入配置）。"""
+        self.dazi.username = username
+        self.dazi.display_name = display_name
+        self._save_to_file()
+
+    def clear_dazi_user(self) -> None:
+        self.dazi.username = ""
+        self.dazi.display_name = ""
         self._save_to_file()
 
     def update_wenlai_user(

@@ -13,6 +13,7 @@ FluentPage {
     property bool syncingWenlaiControls: false
     property bool syncingAiControls: false
     property bool syncingZitiControls: false
+    property bool syncingDaziControls: false
     property bool _populatingDeviceList: false
     property bool updateChecking: false
     property bool updateDownloading: false
@@ -35,6 +36,13 @@ FluentPage {
 
     ListModel {
         id: readerFontModel
+    }
+
+    ListModel {
+        id: daziCompetitionModel
+        ListElement { name: "极速杯"; codeValue: 0 }
+        ListElement { name: "锦标赛"; codeValue: 2 }
+        ListElement { name: "键神杯"; codeValue: 4 }
     }
 
     ListModel {
@@ -136,6 +144,17 @@ FluentPage {
         if (Number.isInteger(value) && value >= 50) {
             appBridge.updateAiMaxChars(value)
         }
+    }
+
+    function applyDaziConfig() {
+        if (!appBridge || syncingDaziControls)
+            return
+        var code = daziCompetitionCombo.currentIndex >= 0
+            ? daziCompetitionModel.get(daziCompetitionCombo.currentIndex).codeValue
+            : 0
+        appBridge.updateDaziConfig(
+            daziBaseUrlField.text.trim(), code, daziUploadSwitch.checked)
+        appBridge.updateDaziInputMethod(daziInputMethodField.text.trim())
     }
 
     function syncZitiSchemeModel(items) {
@@ -555,6 +574,84 @@ FluentPage {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     text: qsTr("TypeType 为中立打字工具，不含广告与聚合搜索；对订阅来源的内容与脚本不承担审核责任，请仅订阅可信来源。")
+                }
+            }
+        }
+    }
+
+    Text {
+        typography: Typography.Subtitle
+        text: qsTr("52dazi")
+        Layout.topMargin: 16
+        Layout.bottomMargin: 8
+    }
+
+    SettingCard {
+        Layout.fillWidth: true
+        title: qsTr("52dazi 成绩上传")
+        icon.name: "ic_fluent_trophy_20_regular"
+        description: appBridge && appBridge.daziLoggedIn
+            ? qsTr("已登录：") + appBridge.daziCurrentUser
+            : qsTr("未登录")
+
+        ColumnLayout {
+            spacing: 8
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                TextField {
+                    id: daziBaseUrlField
+                    Layout.fillWidth: true
+                    text: appBridge ? appBridge.daziBaseUrl : "https://www.jsxiaoshi.com/index.php"
+                    placeholderText: qsTr("52dazi 网关地址")
+                }
+                TextField {
+                    id: daziInputMethodField
+                    implicitWidth: 150
+                    text: appBridge ? appBridge.daziInputMethod : ""
+                    placeholderText: qsTr("输入法名称")
+                    maximumLength: 20
+                }
+                ComboBox {
+                    id: daziCompetitionCombo
+                    implicitWidth: 110
+                    model: daziCompetitionModel
+                    textRole: "name"
+                    onCurrentIndexChanged: {
+                        if (!syncingDaziControls)
+                            applyDaziConfig()
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Switch {
+                    id: daziUploadSwitch
+                    checked: appBridge ? appBridge.daziUploadEnabled : true
+                    onCheckedChanged: {
+                        if (!syncingDaziControls)
+                            applyDaziConfig()
+                    }
+                }
+                Text {
+                    typography: Typography.Caption
+                    text: qsTr("允许显式上传已完成的 52dazi 赛文成绩")
+                    Layout.fillWidth: true
+                }
+                Button {
+                    text: appBridge && appBridge.daziLoggedIn ? qsTr("退出") : qsTr("登录")
+                    highlighted: !(appBridge && appBridge.daziLoggedIn)
+                    onClicked: {
+                        if (!appBridge)
+                            return
+                        if (appBridge.daziLoggedIn)
+                            appBridge.logoutDazi()
+                        else
+                            daziLoginDialog.open()
+                    }
                 }
             }
         }
@@ -1100,6 +1197,62 @@ FluentPage {
         }
     }
 
+    Dialog {
+        id: daziLoginDialog
+        title: qsTr("52dazi 登录")
+        modal: true
+
+        ColumnLayout {
+            width: 300
+            spacing: 12
+            TextField {
+                id: daziUsernameField
+                placeholderText: qsTr("用户名")
+                Layout.fillWidth: true
+            }
+            TextField {
+                id: daziPasswordField
+                placeholderText: qsTr("密码")
+                echoMode: TextInput.Password
+                Layout.fillWidth: true
+            }
+            Text {
+                id: daziLoginErrorText
+                visible: false
+                color: Theme.currentTheme.colors.systemCriticalColor
+                typography: Typography.Caption
+                Layout.fillWidth: true
+                horizontalAlignment: Qt.AlignCenter
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Button {
+                    text: qsTr("取消")
+                    Layout.fillWidth: true
+                    onClicked: daziLoginDialog.close()
+                }
+                Button {
+                    id: daziLoginButton
+                    text: qsTr("登录")
+                    highlighted: true
+                    Layout.fillWidth: true
+                    onClicked: {
+                        var username = daziUsernameField.text.trim()
+                        var password = daziPasswordField.text
+                        if (!username || !password) {
+                            daziLoginErrorText.text = qsTr("请输入用户名和密码")
+                            daziLoginErrorText.visible = true
+                            return
+                        }
+                        daziLoginErrorText.visible = false
+                        daziLoginButton.enabled = false
+                        appBridge.loginDazi(username, password)
+                    }
+                }
+            }
+        }
+    }
+
     // ===================== 关于与更新（ADR-014） =====================
     Text {
         typography: Typography.Subtitle
@@ -1284,6 +1437,31 @@ FluentPage {
                 wenlaiLoginErrorText.text = message
                 wenlaiLoginErrorText.visible = true
             }
+        }
+
+        function onDaziLoginResult(success, message) {
+            daziLoginButton.enabled = true
+            if (success) {
+                daziPasswordField.text = ""
+                daziLoginDialog.close()
+            } else {
+                daziLoginErrorText.text = message
+                daziLoginErrorText.visible = true
+            }
+        }
+
+        function onDaziConfigChanged() {
+            syncingDaziControls = true
+            daziBaseUrlField.text = appBridge.daziBaseUrl
+            daziInputMethodField.text = appBridge.daziInputMethod
+            daziUploadSwitch.checked = appBridge.daziUploadEnabled
+            for (var i = 0; i < daziCompetitionModel.count; i++) {
+                if (daziCompetitionModel.get(i).codeValue === appBridge.daziCompetitionType) {
+                    daziCompetitionCombo.currentIndex = i
+                    break
+                }
+            }
+            syncingDaziControls = false
         }
 
         function onWenlaiDifficultiesLoaded(items) {

@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from ..application.gateways.typing_totals_gateway import TypingTotalsGateway
     from ..application.gateways.wenlai_gateway import WenlaiGateway
     from ..application.gateways.ziti_gateway import ZitiGateway
+    from ..application.gateways.dazi_gateway import DaziGateway
     from ..application.usecases.load_local_article_segment_usecase import (
         LoadLocalArticleSegmentUseCase,
     )
@@ -45,6 +46,10 @@ if TYPE_CHECKING:
     )
     from ..application.usecases.load_wenlai_text_usecase import LoadWenlaiTextUseCase
     from ..application.usecases.generate_ai_text_usecase import GenerateAiTextUseCase
+    from ..application.usecases.dazi_usecases import (
+        LoadDaziTextUseCase,
+        UploadDaziScoreUseCase,
+    )
     from ..domain.services.char_stats_service import CharStatsService
     from ..domain.services.typing_service import TypingService
     from ..infrastructure.api_client import ApiClient
@@ -58,6 +63,7 @@ if TYPE_CHECKING:
     from ..integration.refresh_scheduler import RefreshScheduler
     from ..integration.wenlai_provider import WenlaiProvider
     from ..integration.llm_text_provider import LlmTextProvider
+    from ..integration.dazi_client import DaziClient
     from ..ports.key_listener import KeyListener
     from ..presentation.adapters.char_stats_adapter import CharStatsAdapter
     from ..presentation.adapters.font_adapter import FontAdapter
@@ -71,6 +77,7 @@ if TYPE_CHECKING:
     from ..presentation.adapters.ai_text_adapter import AiTextAdapter
     from ..presentation.adapters.update_adapter import UpdateAdapter
     from ..presentation.adapters.ziti_adapter import ZitiAdapter
+    from ..presentation.adapters.dazi_adapter import DaziAdapter
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +90,7 @@ class Infra:
     wenlai_api_client: ApiClient
     local_text_loader: QtLocalTextLoader
     token_store: SecureTokenStore
+    dazi_client: "DaziClient"
 
 
 @dataclass
@@ -110,6 +118,7 @@ class Gateways:
     trainer: TrainerGateway
     typing_totals: TypingTotalsGateway
     typing_history: TypingHistoryGateway
+    dazi: "DaziGateway"
 
 
 @dataclass
@@ -119,6 +128,8 @@ class UseCases:
     load_local_article_segment: LoadLocalArticleSegmentUseCase
     load_trainer_segment: LoadTrainerSegmentUseCase
     generate_ai_text: GenerateAiTextUseCase
+    load_dazi_text: "LoadDaziTextUseCase"
+    upload_dazi_score: "UploadDaziScoreUseCase"
 
 
 @dataclass
@@ -140,6 +151,7 @@ class Adapters:
     font: FontAdapter
     registry: RegistryAdapter
     upload_text: UploadTextAdapter
+    dazi: "DaziAdapter"
     key_listener: KeyListener | None
     # OttSegmentProvider 类（Bridge 分片会话用），container 装配一次、两处复用
     ott_segment_provider_cls: type | None = None
@@ -165,6 +177,7 @@ def create_infra(runtime_config: RuntimeConfig) -> Infra:
     from ..integration.qt_local_text_loader import QtLocalTextLoader
     from ..integration.secure_token_store import SecureTokenStore
     from ..application.gateways.wenlai_gateway import WenlaiGateway
+    from ..integration.dazi_client import DaziClient
 
     wenlai_api_client = ApiClient(timeout=_WENLAI_HTTP_TIMEOUT)
     local_text_loader = QtLocalTextLoader()
@@ -172,10 +185,13 @@ def create_infra(runtime_config: RuntimeConfig) -> Infra:
     # 预读 token 到缓存
     token_store.get_token("current_user")
     token_store.get_token(WenlaiGateway.TOKEN_KEY)
+    token_store.get_token("dazi_token")
+    token_store.get_token("dazi_cookie")
     return Infra(
         wenlai_api_client=wenlai_api_client,
         local_text_loader=local_text_loader,
         token_store=token_store,
+        dazi_client=DaziClient(base_url=runtime_config.dazi.base_url),
     )
 
 
@@ -272,6 +288,7 @@ def create_gateways(
     from ..application.gateways.typing_totals_gateway import TypingTotalsGateway
     from ..integration.json_typing_history_store import JsonTypingHistoryStore
     from ..integration.json_typing_totals_store import JsonTypingTotalsStore
+    from ..application.gateways.dazi_gateway import DaziGateway
 
     return Gateways(
         score=ScoreGateway(clipboard=clipboard),
@@ -294,6 +311,11 @@ def create_gateways(
             store=JsonTypingHistoryStore(typing_history_path()),
             max_records=runtime_config.typing_history_max_records,
         ),
+        dazi=DaziGateway(
+            runtime_config=runtime_config,
+            provider=infra.dazi_client,
+            token_store=infra.token_store,
+        ),
     )
 
 
@@ -315,6 +337,10 @@ def create_use_cases(
     from ..domain.services.trainer_service import TrainerService
     from ..integration.sqlite_char_stats_repository import SqliteCharStatsRepository
     from .app_paths import char_stats_db_path
+    from ..application.usecases.dazi_usecases import (
+        LoadDaziTextUseCase,
+        UploadDaziScoreUseCase,
+    )
 
     trainer_service = TrainerService(repository=repos.trainer)
     char_stats_repo = SqliteCharStatsRepository(db_path=str(char_stats_db_path()))
@@ -332,6 +358,8 @@ def create_use_cases(
             llm_provider=providers.llm,
             char_stats_repo=char_stats_repo,
         ),
+        load_dazi_text=LoadDaziTextUseCase(gateway=gateways.dazi),
+        upload_dazi_score=UploadDaziScoreUseCase(gateway=gateways.dazi),
     )
 
 
@@ -388,6 +416,7 @@ def create_adapters(
     from ..presentation.adapters.font_adapter import FontAdapter
     from ..presentation.adapters.registry_adapter import RegistryAdapter
     from ..presentation.adapters.upload_text_adapter import UploadTextAdapter
+    from ..presentation.adapters.dazi_adapter import DaziAdapter
     from ..presentation.adapters.update_adapter import UpdateAdapter
     from ..application.gateways.font_gateway import FontGateway
     from ..integration.qt_async_executor import QtAsyncExecutor
@@ -477,6 +506,11 @@ def create_adapters(
     upload_text_adapter = UploadTextAdapter(
         runtime_config=runtime_config,
     )
+    dazi_adapter = DaziAdapter(
+        gateway=gateways.dazi,
+        load_usecase=use_cases.load_dazi_text,
+        upload_usecase=use_cases.upload_dazi_score,
+    )
 
     # Platform detection + key listener
     system_identifier = SystemIdentifier()
@@ -520,6 +554,7 @@ def create_adapters(
         font=font_adapter,
         registry=registry_adapter,
         upload_text=upload_text_adapter,
+        dazi=dazi_adapter,
         key_listener=key_listener,
         ott_segment_provider_cls=OttSegmentProvider,
         update=update_adapter,

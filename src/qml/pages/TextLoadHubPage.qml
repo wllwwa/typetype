@@ -10,7 +10,7 @@ import "../helpers/TextSourceBehaviors.js" as SrcBehav
 /**
  * 统一载文中心。
  *
- * 将本地文库、开源文库、练单器、晴发文、AI 推荐、自定义 6 种来源收敛到单一页面。
+ * 将本地文库、开源文库、练单器、晴发文、AI 推荐、52dazi、自定义 7 种来源收敛到单一页面。
  * 顶部为 RinUI Segmented 来源切换，左侧为对应列表/输入，右侧为统一的预览 + 切片设置 + 操作按钮。
  * 开源文库按订阅源分组展示联邦聚合条目（RepoEntriesPanel，组头可管理该源），
  * 不再有独立订阅管理子页面（源配置经组头弹窗 RepoConfigDialog 完成）。
@@ -26,13 +26,14 @@ FluentPage {
     property string currentSource: initialSource || "local"
 
     // ---- 来源定义 ----
-    readonly property var sourceKeys: ["local", "repos", "trainer", "wenlai", "ai", "custom"]
+    readonly property var sourceKeys: ["local", "repos", "trainer", "wenlai", "ai", "dazi", "custom"]
     readonly property var sourceLabels: [
         qsTr("本地文库"),
         qsTr("开源文库"),
         qsTr("练单器"),
         qsTr("晴发文"),
         qsTr("AI 推荐"),
+        qsTr("52dazi"),
         qsTr("自定义")
     ]
     readonly property var sourceIcons: [
@@ -41,6 +42,7 @@ FluentPage {
         "ic_fluent_apps_list_detail_20_regular",
         "ic_fluent_book_20_regular",
         "ic_fluent_sparkle_20_regular",
+        "ic_fluent_trophy_20_regular",
         "ic_fluent_edit_20_regular"
     ]
 
@@ -489,6 +491,7 @@ FluentPage {
             SegmentedItem { text: qsTr("练单器"); icon.name: "ic_fluent_apps_list_detail_20_regular" }
             SegmentedItem { text: qsTr("晴发文"); icon.name: "ic_fluent_book_20_regular" }
             SegmentedItem { text: qsTr("AI 推荐"); icon.name: "ic_fluent_sparkle_20_regular" }
+            SegmentedItem { text: qsTr("52dazi"); icon.name: "ic_fluent_trophy_20_regular" }
             SegmentedItem { text: qsTr("自定义"); icon.name: "ic_fluent_edit_20_regular" }
 
             onCurrentIndexChanged: {
@@ -611,7 +614,17 @@ FluentPage {
                 }
             }
 
-            // index 5: custom — 自定义
+            // index 5: dazi — 52dazi 今日竞赛
+            DaziSourcePanel {
+                onLoadRequested: function(competitionType) {
+                    root.navigateToTyping()
+                    Qt.callLater(function() {
+                        if (appBridge) appBridge.loadDaziText(competitionType)
+                    })
+                }
+            }
+
+            // index 6: custom — 自定义
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true

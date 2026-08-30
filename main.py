@@ -78,6 +78,7 @@ def main():
         text_slice_progress_store=text_slice_progress_store,
         ott_segment_provider_cls=adapters.ott_segment_provider_cls,
         update_adapter=adapters.update,
+        dazi_adapter=adapters.dazi,
     )
 
     # ADR-014：QApplication 就绪后按配置触发一次后台自动更新检查（失败静默）。

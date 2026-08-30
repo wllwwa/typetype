@@ -558,9 +558,13 @@ class TypingAdapter(QObject):
     def get_score_message(self) -> str:
         return self._score_gateway.build_score_message(self._typing_service.score_data)
 
-    def get_score_plain_text(self) -> str:
+    def get_score_plain_text(
+        self, segment_label: str = "第1段", identity: str = "1"
+    ) -> str:
         return self._score_gateway.build_score_plain_text(
-            self._typing_service.score_data
+            self._typing_service.score_data,
+            segment_label=segment_label,
+            identity=identity,
         )
 
     def copy_score_message(self) -> None:

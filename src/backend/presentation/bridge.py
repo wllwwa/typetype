@@ -382,16 +382,35 @@ class Bridge(QObject):
 
     def _build_current_score_plain_text(self) -> str:
         """构建当前会话的可复制成绩。"""
-        score_text = self._typing_adapter.get_score_plain_text()
         segment_prefix = self._current_score_segment_prefix()
+        score_text = self._typing_adapter.get_score_plain_text(
+            segment_label=segment_prefix or "第1段",
+            identity=self._current_score_identity(),
+        )
         if not score_text or not segment_prefix:
             return score_text
+        # 兼容自定义 ScoreGateway：正式格式化器已包含段号，旧实现只返回指标正文。
         if score_text.startswith(f"{segment_prefix} "):
             return score_text
         return f"{segment_prefix} {score_text}"
 
+    def _current_score_identity(self) -> str:
+        """返回官网成绩哈希使用的文本段身份。"""
+        if self._dazi_adapter and self._dazi_adapter.active:
+            return self._dazi_adapter.current_segment_identity
+        text_id = self._text_id
+        if text_id and text_id > 0:
+            return str(text_id)
+        if self._typing_adapter.is_slice_mode():
+            idx = self._typing_adapter.slice_index
+            if idx > 0:
+                return str(idx)
+        return "1"
+
     def _current_score_segment_prefix(self) -> str:
         """返回当前段号的文本前缀（用于 scoreText）。"""
+        if self._dazi_adapter and self._dazi_adapter.active:
+            return f"第{self._dazi_adapter.current_segment_identity}段"
         # 晴发文：使用服务端返回的段号
         if self._wenlai_adapter and self._wenlai_adapter.is_active:
             current_text = self._wenlai_adapter.current_text

@@ -19,6 +19,16 @@ class DaziCompetitionType(IntEnum):
             DaziCompetitionType.JIANSHEN: "键神杯",
         }[self]
 
+    @property
+    def segment_identity(self) -> int:
+        """官网成绩文本使用的竞赛段号。"""
+        # 与 52dazi 网页 getCompetitionText 的当前映射保持一致。
+        return {
+            DaziCompetitionType.JISU: 99999,
+            DaziCompetitionType.JINBIAO: 100000,
+            DaziCompetitionType.JIANSHEN: 99999,
+        }[self]
+
     @classmethod
     def from_code(cls, code: int) -> "DaziCompetitionType":
         try:

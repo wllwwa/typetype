@@ -69,6 +69,13 @@ class DaziAdapter(QObject):
     def current_text(self) -> DaziCompetitionText | None:
         return self._current_text
 
+    @property
+    def current_segment_identity(self) -> str:
+        """返回官网成绩文本使用的当前竞赛段号。"""
+        if not self._current_text:
+            return "1"
+        return str(self._current_text.competition_type.segment_identity)
+
     def _set_loading(self, value: bool) -> None:
         if self._loading != value:
             self._loading = value

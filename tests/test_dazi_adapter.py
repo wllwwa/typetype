@@ -70,6 +70,7 @@ def test_load_worker_emits_result_and_clears_loading() -> None:
     assert adapter.loading is False
     assert adapter.active is True
     assert adapter.current_text.competition_type == DaziCompetitionType.JINBIAO
+    assert adapter.current_segment_identity == "100000"
 
 
 def test_duplicate_upload_is_ignored_until_finished() -> None:

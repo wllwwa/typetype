@@ -10,6 +10,13 @@ QQC.Pane {
     property alias text: textArea.text
     property alias fontSize: textArea.font.pixelSize  // 暴露字体大小属性
     property alias fontFamily: textArea.font.family
+    // 跟打时让当前行位于可视区第 3 行（当前行上方预留两行）。
+    property int typingLineOffset: 2
+    // 退格回滚至少累计两个文字，换行不计入阈值。
+    property int backwardScrollThreshold: 2
+    property int previousCursorPos: -1
+    property int backwardScrollPending: 0
+    property real previousTargetY: -1
 
     function setCursorAndScroll(cursorPos, forceScroll) {
         textArea.setCursorAndScroll(cursorPos, forceScroll);
@@ -28,6 +35,18 @@ QQC.Pane {
         border.color: Rin.Theme.currentTheme ? Rin.Theme.currentTheme.colors.dividerBorderColor : "#e0e0e0"
         border.width: 1
         radius: 2
+    }
+
+    // 面板高度拖动时，主动同步滚动边界并请求文本重绘。
+    onHeightChanged: {
+        if (!scrollView || !scrollView.contentItem || !textArea)
+            return;
+        Qt.callLater(function() {
+            var maxY = Math.max(0,
+                scrollView.contentItem.contentHeight - scrollView.contentItem.height);
+            scrollView.contentItem.contentY = Math.min(scrollView.contentItem.contentY, maxY);
+            textArea.update();
+        });
     }
 
     QQC.ScrollView {
@@ -50,6 +69,14 @@ QQC.Pane {
             // **大小控制**
             width: 12                           // 滚动条宽度 12px
             // 高度会自动根据 anchors 计算
+        }
+
+        NumberAnimation {
+            id: scrollAnimation
+            target: scrollView.contentItem
+            property: "contentY"
+            duration: 180
+            easing.type: Easing.OutCubic
         }
 
         QQC.TextArea {
@@ -81,20 +108,50 @@ QQC.Pane {
             }
 
             function scrollToPosition(cursorPos, forceScroll) {
-                // 获取光标所在行的矩形信息
+                // 以当前行的顶部为基准定位，避免长文时光标行一直居中。
                 var rect = textArea.positionToRectangle(cursorPos);
                 if (!rect)
                     return;
 
                 var currentY = scrollView.contentItem.contentY;
-                var centerY = scrollView.height * 0.48;
-                var targetY = Math.max(rect.y + rect.height / 2 - centerY, 0);
-                var maxY = Math.max(0, textArea.contentHeight - scrollView.height);
-                targetY = Math.min(targetY, maxY);
-
                 var lineHeight = Math.max(rect.height, textArea.font.pixelSize);
-                if (forceScroll === true || Math.abs(currentY - targetY) > lineHeight * 0.8) {
-                    scrollView.contentItem.contentY = targetY;
+                var targetY = rect.y - lineHeight * root.typingLineOffset;
+                var maxY = Math.max(0,
+                    scrollView.contentItem.contentHeight - scrollView.contentItem.height);
+                targetY = Math.max(0, Math.min(targetY, maxY));
+
+                var movingBackward = targetY < currentY - 0.5;
+                if (forceScroll === true || root.previousCursorPos < 0) {
+                    root.backwardScrollPending = 0;
+                } else if (cursorPos < root.previousCursorPos) {
+                    // 跨到上一行的第一次退格只进入上一行，不占用两个字的缓冲。
+                    var enteredPreviousLine = targetY < root.previousTargetY - 0.5;
+                    if (enteredPreviousLine) {
+                        root.backwardScrollPending = 0;
+                    } else {
+                        var deletedText = textArea.text.substring(cursorPos, root.previousCursorPos);
+                        root.backwardScrollPending += deletedText.replace(/[\r\n]/g, "").length;
+                    }
+                } else {
+                    root.backwardScrollPending = 0;
+                }
+                root.previousCursorPos = cursorPos;
+                root.previousTargetY = targetY;
+
+                if (movingBackward &&
+                        root.backwardScrollPending < root.backwardScrollThreshold) {
+                    return;
+                }
+
+                if (forceScroll === true || Math.abs(currentY - targetY) > 0.5) {
+                    if (scrollAnimation.running && Math.abs(scrollAnimation.to - targetY) <= 0.5)
+                        return;
+                    scrollAnimation.stop();
+                    scrollAnimation.from = currentY;
+                    scrollAnimation.to = targetY;
+                    scrollAnimation.start();
+                    if (movingBackward)
+                        root.backwardScrollPending = 0;
                 }
             }
         }

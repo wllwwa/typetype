@@ -190,6 +190,38 @@ def test_typing_page_handles_local_article_segment_load_failure():
     assert "upperPane.text = message" in source
 
 
+def test_upper_pane_keeps_typing_line_on_third_visible_line():
+    upper_pane = QML_DIR / "typing/UpperPane.qml"
+    source = upper_pane.read_text(encoding="utf-8")
+
+    assert "property int typingLineOffset: 2" in source
+    assert "property int backwardScrollThreshold: 2" in source
+    assert "property real previousTargetY: -1" in source
+    assert 'deletedText.replace(/[\\r\\n]/g, "").length' in source
+    assert "var targetY = rect.y - lineHeight * root.typingLineOffset;" in source
+    assert (
+        "scrollView.contentItem.contentHeight - scrollView.contentItem.height" in source
+    )
+    assert "scrollAnimation.start();" in source
+    assert "root.backwardScrollPending < root.backwardScrollThreshold" in source
+    assert "enteredPreviousLine" in source
+    assert "targetY = Math.max(0, Math.min(targetY, maxY));" in source
+    assert "var centerY = scrollView.height * 0.48;" not in source
+
+
+def test_typing_page_supports_resizing_upper_pane():
+    page_qml = QML_DIR / "pages/TypingPage.qml"
+    source = page_qml.read_text(encoding="utf-8")
+
+    assert "property real upperPaneHeight" in source
+    assert "readonly property real upperPaneMinHeight" in source
+    assert "readonly property real upperPaneMaxHeight: 600" in source
+    assert "function setUpperPaneHeight(height)" in source
+    assert "id: upperPaneResizeHandle" in source
+    assert "cursorShape: Qt.SizeVerCursor" in source
+    assert "typingPage.setUpperPaneHeight" in source
+
+
 def test_typing_page_renders_ziti_hint_from_bridge():
     page_qml = QML_DIR / "pages/TypingPage.qml"
     source = page_qml.read_text(encoding="utf-8")

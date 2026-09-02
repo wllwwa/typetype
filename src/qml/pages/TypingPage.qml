@@ -11,7 +11,16 @@ Item {
     property string sliceStatusText: ""
     property string sliceCriteriaText: ""
     property string currentZitiHint: ""
+    property real upperPaneHeight: fontMetricsText.height > 0 ? fontMetricsText.height * 4 : 80
+    readonly property real upperPaneMinHeight: fontMetricsText.height > 0 ? fontMetricsText.height * 2 : 80
+    readonly property real upperPaneMaxHeight: 600
+    property bool resizingUpperPane: false
     readonly property int historyMaxRows: 200
+
+    function setUpperPaneHeight(height) {
+        upperPaneHeight = Math.max(upperPaneMinHeight,
+            Math.min(upperPaneMaxHeight, height));
+    }
 
     //=====================================
     // 函数
@@ -656,8 +665,48 @@ Item {
                         fontSize: fontMetricsText.sharedFontSize  // 绑定到共享属性
                         fontFamily: fontMetricsText.font.family
                         Layout.fillWidth: true
-                        Layout.preferredHeight: fontMetricsText.height * 4
-                        Layout.minimumHeight: fontMetricsText.height > 0 ? fontMetricsText.height * 2 : 80
+                        Layout.preferredHeight: typingPage.upperPaneHeight
+                        Layout.minimumHeight: typingPage.upperPaneMinHeight
+                    }
+
+                    Rectangle {
+                        id: upperPaneResizeHandle
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        color: Theme.currentTheme
+                            ? Theme.currentTheme.colors.dividerBorderColor
+                            : "#c8c8c8"
+
+                        MouseArea {
+                            id: resizeArea
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 10
+                            acceptedButtons: Qt.LeftButton
+                            preventStealing: true
+                            hoverEnabled: true
+                            cursorShape: Qt.SizeVerCursor
+                            property real dragStartPageY: 0
+                            property real dragStartHeight: 0
+
+                            onPressed: function(mouse) {
+                                dragStartPageY = resizeArea.mapToItem(
+                                    typingPage, mouse.x, mouse.y).y;
+                                dragStartHeight = typingPage.upperPaneHeight;
+                                typingPage.resizingUpperPane = true;
+                            }
+                            onPositionChanged: function(mouse) {
+                                if (pressed) {
+                                    var pageY = resizeArea.mapToItem(
+                                        typingPage, mouse.x, mouse.y).y;
+                                    typingPage.setUpperPaneHeight(
+                                        dragStartHeight + pageY - dragStartPageY);
+                                }
+                            }
+                            onReleased: typingPage.resizingUpperPane = false;
+                            onCanceled: typingPage.resizingUpperPane = false;
+                        }
                     }
 
                     ScoreArea {
@@ -903,6 +952,17 @@ Item {
         x: (parent.width - width) / 2
         y: (parent.height - height) / 2
         property bool isSliceAggregate: false
+    }
+
+    // 拖动期间覆盖整个跟打页面，避免文本区等子项改写光标样式。
+    MouseArea {
+        anchors.fill: parent
+        z: 999
+        visible: typingPage.resizingUpperPane
+        enabled: visible
+        hoverEnabled: true
+        acceptedButtons: Qt.NoButton
+        cursorShape: Qt.SizeVerCursor
     }
 
 }

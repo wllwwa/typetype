@@ -14,8 +14,10 @@
 
 ### Added
 
-- **智能路由（SmartRouteSelector）**：刷新/拉取链路按**实时延迟与连通性**在候选路径间选路——候选 = 原始地址 → jsDelivr CDN → 配置的镜像/代理前缀（`ott.route_mirrors`，如 ghproxy 形态）→ manifest mirrors，纯动态派生不硬编码。短超时（2s）并发探测 + TTL 缓存（`ott.route_probe_ttl_seconds`，默认 300s）+ 失败指数退避冷却（30s→300s 封顶）+ 真实请求回写（延迟 EWMA）。接入 manifest 拉取（`RepoManifestCache`）、instance 条目/分段（`OttCachedFetcher`）、脚本下载（`ScriptCache`）；不可达候选不再消耗 10s 超时，修复「刷新一直转圈直到 45s 硬超时」；`router=None` 时保持原固定 failover，测试兼容
+- **载文中心新增 52dazi 竞赛入口**：在独立页签中按比赛类型载入今日极速杯、锦标赛或键神杯赛文，登录状态与载入中的状态在面板内明确展示
 - **52dazi 竞赛接入**：支持登录 52dazi、加载极速杯/锦标赛/键神杯赛文，并在完成全文赛文后由用户显式上传成绩；token、`PHPSESSID` 使用密钥环保存，密码不持久化，普通文本和分片文本不会误上传
+- **智能路由（SmartRouteSelector）**：刷新/拉取链路按**实时延迟与连通性**在候选路径间选路——候选 = 原始地址 → jsDelivr CDN → 配置的镜像/代理前缀（`ott.route_mirrors`，如 ghproxy 形态）→ manifest mirrors，纯动态派生不硬编码。短超时（2s）并发探测 + TTL 缓存（`ott.route_probe_ttl_seconds`，默认 300s）+ 失败指数退避冷却（30s→300s 封顶）+ 真实请求回写（延迟 EWMA）。接入 manifest 拉取（`RepoManifestCache`）、instance 条目/分段（`OttCachedFetcher`）、脚本下载（`ScriptCache`）；不可达候选不再消耗 10s 超时，修复「刷新一直转圈直到 45s 硬超时」；`router=None` 时保持原固定 failover，测试兼容
+- **Wayland 浏览器击键桥接**：新增仅绑定 `127.0.0.1` 的 evdev + WebSocket 轻量服务和油猴脚本，为网页跟打器提供不含具体键值的 `stroke` / `backspace` 物理事件；内置我爱打字网普通跟打、战场和词库练习统计适配，补充 token、Origin 校验及安装协议文档
 - **内置默认文本源（ADR-011 Phase 4）**：首启自动注入 `file://` 内置 OTT Repo（经典中文短句 / 拼音声调练习 / 唐诗精选），完全离线可用，不自动订阅任何远程源；静态 profile 补齐 `sources.json` 与 `entries/{id}.json`，摘要不再内嵌全文，entry_id 符合 schema pattern，逐条标注 rights/license/origin；官方默认仓移除 ott-script/ott-rule 示例
 - **默认内容独立仓库（ADR-011 Phase 4 收口）**：官方默认 OTT Repo 迁移到 `whynusn/typetype-default-ott-repo`，订阅 URL 与客户端发布解耦；`resources/ott-repo` 改为由 `scripts/sync_builtin_ott_repo.py` 生成的离线快照
 - **适配器包规范上移标准仓**：`docs/adapter-package.md` 与 `schemas/ott-adapter-v1.schema.json` 权威位置迁到 open-typing-texts，typetype SDK/测试引用兄弟仓，不再重复维护
@@ -30,6 +32,8 @@
 
 ### Fixed
 
+- **官网兼容成绩剪贴板格式**：普通成绩复制改为 52dazi/极速打字通单行格式，统一时间、计数项、官网字段顺序和成绩哈希，复制内容可直接替代网页成绩文本
+- **52dazi 竞赛段号兼容**：极速杯成绩使用官网 `第99999段`，锦标赛使用 `第100000段`，段号同时参与成绩哈希，避免不同比赛共用错误身份
 - **开源文库分组精度到源（authority）级**：列表按**每一条规则/源**分组展示（一言 / 极速杯 / 今日诗词桥接 / 英文名言 / 内置静态源各一组），组头显示源名（manifest `source.label` 注入 `_source_label`，不硬编码）+ 所属订阅源标识（`_repo_name` 小字）+ 计数/上限；订阅源（repo）本身不再作为分组出现在列表中（管理按钮仍作用于所属订阅源弹窗）。存量旧快照缺 `_source_label` 时回退 `source_label` 原文，自愈逻辑同步补写
 - **刷新作用域与分组一致（源级）**：组头刷新改为 `refreshFederatedSource(authority)` → 只物化该源并重发列表（旧 repo 级 `refreshRepoEntries` 保留后端能力）；刷新动画标记改为 `refreshingFederatedSource`（authority），成功/失败/超时三路都清除标记——修复「刷新动画无限显示、没有结束状态」
 - **源级刷新动画不再随机永转（worker 生命周期 + 双定时器）**：`RegistryAdapter` 提交 `QRunnable` 后曾不持有 Python wrapper 引用，跨线程排队的「清标记」连接随机丢失——文本已更新但组头转圈直到 45s 超时；现统一 `_start_worker()`（`setAutoDelete(False)` + `_active_workers` 持有到 `finished`）、成功/失败各只连一个槽并在 `try/finally` 中清标记 + 序号守卫。手动刷新与后台 revalidate 拆成两个独立 45s 单发定时器，操作完成即停表——不再出现「源级刷新已成功，残留 revalidate 定时器到点误报刷新超时」
@@ -58,6 +62,8 @@
 - **订阅源配置弹窗取代独立管理页**：`ReposManagementPage`/`ReposManagementPanel` 删除——组头「管理该源」打开 `RepoConfigDialog`（启用/信任确认/删除订阅）；「添加订阅」在开源文库列表头部弹窗输入 URL；**删除订阅连带清理该源全部已缓存文本**（`catalog.remove_repo` → `store.clear_authority`，不再残留孤儿快照目录），列表即时移除该源
 - **文本计数 x / 上限**：manifest 新增可选字段 `max_entries`（订阅源声明文本上限，缺失/非正 = 无上限），组头显示「当前 N 条」或「N / M 条」；repo 级刷新（`refreshFederatedRepo`）只物化该订阅源下的全部源，其他订阅源零调用
 - **脚本下载 GitHub raw 超时兜底**：`ScriptCache` 与 `OttCachedFetcher` 主地址失败时自动走 jsDelivr CDN 降级（raw.githubusercontent.com → cdn.jsdelivr.net，与 manifest 拉取同款），修复脚本源/instance 源在国内网络下 `read operation timed out`
+- **空文本来源配置启动失败**：兼容旧配置中没有 `text_sources` 的情况，启动时恢复内置 `builtin_demo`，避免请求空来源并恢复显示“你好，世界。”
+- **个人中心返回跟打后卡顿**：个人中心改用活动期数据快照，离开后不再响应跟打结束时的历史刷新信号，避免缓存页面在切段瞬间重复读取历史并重建统计与列表
 - **占位订阅清理后补回内置源**：配置里只剩 `example.org` 测试占位时，清理后自动重新注入内置 OTT Repo，避免应用启动后源列表为空
 
 ### Removed
@@ -162,4 +168,3 @@
 
 **最后更新**: 2026-06-04  
 **相关文档**: [@see docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — 当前架构事实源
-- **载文中心新增 52dazi 竞赛入口**：在独立页签中按比赛类型载入今日极速杯、锦标赛或键神杯赛文，登录状态与载入中的状态在面板内明确展示

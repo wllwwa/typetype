@@ -204,6 +204,19 @@ def test_get_source_options_include_local_metadata():
     ]
 
 
+def test_empty_source_config_restores_builtin_demo_for_startup():
+    adapter, runtime_config, _ = _build_adapter()
+    runtime_config.text_source_config.default_key = ""
+
+    assert adapter.get_startup_source_key() == "builtin_demo"
+    assert adapter.get_default_source_key() == "builtin_demo"
+    assert adapter.get_default_source_label() == "本地示例"
+
+    source = runtime_config.text_source_config.sources["builtin_demo"]
+    assert source.local_path == "resources/texts/builtin_demo.txt"
+    assert source.is_local
+
+
 def test_startup_source_uses_default_when_default_is_local():
     adapter, runtime_config, _ = _build_adapter()
     runtime_config.text_source_config.default_key = "builtin_demo"

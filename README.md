@@ -95,6 +95,16 @@ sudo usermod -aG input $USER
 
 重新登录后生效。若没有该权限，部分指标统计会有问题，但不影响基础打字功能。
 
+### 浏览器网页的 Wayland 准确统计
+
+网页跟打器在 Wayland 中文输入法下看不到部分物理按键。可以启动一个只监听回环地址的 evdev 桥接服务，再安装油猴脚本，将 `stroke` / `backspace` 事件提供给网页：
+
+```bash
+uv run python scripts/wayland_typing_bridge.py
+```
+
+完整安装步骤、协议和安全边界见 [Wayland 浏览器击键桥接指南](docs/guides/wayland-browser-bridge.md)。
+
 ### macOS 输入监控权限
 
 macOS 下准确统计中文输入法的物理击键需要 Quartz 全局键盘监听。首次运行时，如果系统未授权，程序会降级到 QML 文本变化统计，基础打字仍可用，但码长/击键会按上屏字符估算。

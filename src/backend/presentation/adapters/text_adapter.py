@@ -10,6 +10,7 @@ from ...application.usecases.load_text_usecase import (
 )
 from ...application.usecases.text_session_usecase import TextSessionUseCase
 from ...config.runtime_config import RuntimeConfig
+from ...config.text_source_config import TextSourceEntry
 from ...models.dto.text_session import SegmentResult, TextHandle, TextKind
 from ...workers.text_load_worker import TextLoadWorker
 
@@ -177,6 +178,7 @@ class TextAdapter(QObject):
 
     def get_source_options(self) -> list[dict[str, str | bool]]:
         """获取 UI 可选的来源列表（全部来源，用于载文下拉框）。"""
+        self._ensure_builtin_demo_source()
         return [
             {
                 "key": source.key,
@@ -187,10 +189,12 @@ class TextAdapter(QObject):
         ]
 
     def get_default_source_key(self) -> str:
+        self._ensure_builtin_demo_source()
         return self._runtime_config.text_source_config.default_key
 
     def get_startup_source_key(self) -> str:
         """启动自动载文优先选本地来源，避免远程默认源不可用时开屏报错。"""
+        self._ensure_builtin_demo_source()
         config = self._runtime_config.text_source_config
         default_key = config.default_key
         default_source = config.get_source(default_key)
@@ -204,11 +208,25 @@ class TextAdapter(QObject):
 
     def get_default_source_label(self) -> str:
         """获取默认文本来源的 label。"""
+        self._ensure_builtin_demo_source()
         default_key = self._runtime_config.text_source_config.default_key
         source = self._runtime_config.text_source_config.get_source(default_key)
         if source:
             return source.label
         return ""
+
+    def _ensure_builtin_demo_source(self) -> None:
+        """兼容旧空配置，恢复开箱即用的本地示例文本。"""
+        config = self._runtime_config.text_source_config
+        if config.sources or config.default_key:
+            return
+
+        config.sources["builtin_demo"] = TextSourceEntry(
+            key="builtin_demo",
+            label="本地示例",
+            local_path="resources/texts/builtin_demo.txt",
+        )
+        config.default_key = "builtin_demo"
 
     def get_local_text_content(self, source_key: str) -> str:
         """读取指定本地来源的完整内容。"""

@@ -618,6 +618,7 @@ Item {
             daziLoading: appBridge ? appBridge.daziLoading : false
             daziUploading: appBridge ? appBridge.daziUploading : false
             daziScoreReady: appBridge ? appBridge.daziScoreReady : false
+            daziCompetitionType: appBridge ? appBridge.daziCompetitionType : 0
             onRequestAiText: {
                 if (appBridge)
                     appBridge.requestAiText();

@@ -10,6 +10,17 @@ QQC.Pane {
     property bool daziLoading: false
     property bool daziUploading: false
     property bool daziScoreReady: false
+    property int daziCompetitionType: 0
+    readonly property string daziCompetitionLabel: {
+        switch (daziCompetitionType) {
+        case 2:
+            return qsTr("锦标赛")
+        case 4:
+            return qsTr("键神杯")
+        default:
+            return qsTr("极速杯")
+        }
+    }
 
     padding: 8
 
@@ -62,7 +73,7 @@ QQC.Pane {
             height: 36
             anchors.verticalCenter: parent.verticalCenter
             enabled: !root.daziLoading && !root.daziUploading
-            text: "52dazi赛文"
+            text: root.daziCompetitionLabel
             onClicked: root.requestLoadDaziText()
         }
 

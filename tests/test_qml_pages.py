@@ -156,6 +156,24 @@ def test_dazi_source_panel_uses_valid_bridge_api():
     assert "daziLoading" in refs and "daziLoading" in BRIDGE_PROPERTIES
 
 
+def test_typing_toolbar_uses_configured_dazi_competition_label():
+    typing_page = QML_DIR / "pages/TypingPage.qml"
+    tool_line = QML_DIR / "typing/ToolLine.qml"
+    page_source = typing_page.read_text(encoding="utf-8")
+    tool_source = tool_line.read_text(encoding="utf-8")
+
+    assert (
+        "daziCompetitionType: appBridge ? appBridge.daziCompetitionType : 0"
+        in page_source
+    )
+    assert "daziCompetitionType" in BRIDGE_PROPERTIES
+    assert "text: root.daziCompetitionLabel" in tool_source
+    assert 'return qsTr("极速杯")' in tool_source
+    assert 'return qsTr("锦标赛")' in tool_source
+    assert 'return qsTr("键神杯")' in tool_source
+    assert 'text: "52dazi赛文"' not in tool_source
+
+
 def test_text_load_hub_routes_text_sources_through_slice_launcher():
     page_qml = QML_DIR / "pages/TextLoadHubPage.qml"
     source = page_qml.read_text(encoding="utf-8")

@@ -3,7 +3,7 @@ import logging
 import logging.handlers
 
 import src.backend.utils.logger as logger_module
-from PySide6.QtCore import QtMsgType, qDebug, qInstallMessageHandler, qWarning
+from PySide6.QtCore import QtMsgType, qInstallMessageHandler, qWarning
 
 
 def test_logger_import_survives_file_handler_creation_failure(
@@ -53,7 +53,11 @@ def test_install_qt_message_handler_routes_qt_logs_to_python_logger(
 
         assert logger_module.install_qt_message_handler() is True
 
-        qDebug("qml debug message")
+        logger_module._qt_message_handler(
+            QtMsgType.QtDebugMsg,
+            None,
+            "qml debug message",
+        )
         qWarning("qml warning message")
     finally:
         qInstallMessageHandler(previous_handler)

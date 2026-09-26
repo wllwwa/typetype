@@ -14,6 +14,7 @@
 
 ### Added
 
+- **和弦模式统计开关**：设置页新增「和弦模式」开关（`typing.chord_mode_enabled`）。开启后一次提交按实际提交字符数计**逻辑击键**——多个物理按键组成的和弦只计一次击键，不再随物理按键数重复累加；击键、码长、键准按逻辑击键数重算，退格单独计一次；Wayland/macOS 全局监听路径同样只按上屏结果计数。开关实时持久化、重启保留，普通模式统计不变
 - **载文中心新增 52dazi 竞赛入口**：在独立页签中按比赛类型载入今日极速杯、锦标赛或键神杯赛文，登录状态与载入中的状态在面板内明确展示
 - **52dazi 竞赛接入**：支持登录 52dazi、加载极速杯/锦标赛/键神杯赛文，并在完成全文赛文后由用户显式上传成绩；token、`PHPSESSID` 使用密钥环保存，密码不持久化，普通文本和分片文本不会误上传
 - **智能路由（SmartRouteSelector）**：刷新/拉取链路按**实时延迟与连通性**在候选路径间选路——候选 = 原始地址 → jsDelivr CDN → 配置的镜像/代理前缀（`ott.route_mirrors`，如 ghproxy 形态）→ manifest mirrors，纯动态派生不硬编码。短超时（2s）并发探测 + TTL 缓存（`ott.route_probe_ttl_seconds`，默认 300s）+ 失败指数退避冷却（30s→300s 封顶）+ 真实请求回写（延迟 EWMA）。接入 manifest 拉取（`RepoManifestCache`）、instance 条目/分段（`OttCachedFetcher`）、脚本下载（`ScriptCache`）；不可达候选不再消耗 10s 超时，修复「刷新一直转圈直到 45s 硬超时」；`router=None` 时保持原固定 failover，测试兼容

@@ -1,5 +1,5 @@
 # RuntimeConfig 配置速查
-<!-- 状态: active | 最后验证: 2026-08-30 -->
+<!-- 状态: active | 最后验证: 2026-09-25 -->
 
 > 配置文件位于用户配置目录中的 `config.json`（schema_version=2，ADR-013）。首次启动时由 dataclass 默认值自动生成。macOS 用户配置目录为 `~/Library/Application Support/TypeType/`，Linux 为 `~/.config/typetype/`。
 
@@ -19,6 +19,7 @@
 | `ai` | `dict` | 见下 | AI 智能推荐配置 |
 | `dazi` | `dict` | 见下 | 52dazi 竞赛赛文和显式成绩上传配置 |
 | `text_session` | `dict` | 见下 | 载文会话配置 |
+| `typing` | `dict` | 见下 | 打字统计配置（和弦模式） |
 | `ui` | `dict` | 见下 | UI 主题与外观配置 |
 
 > **v2 已删除字段**（v1 → v2 迁移时丢弃）：`base_url`、`api_timeout`、`registry` 段（含 `registry.primary_url` / `registry.mirror_url`）、`text_sources` 中的 server/registry 条目与 `loader`/`leaderboard_mode`/`source_type`/`has_ranking` 字段、`font_config.json`（合并进 `ui.reader_font_path` 后文件退役）。
@@ -128,6 +129,14 @@ AI API Key 不写入 JSON 配置，走系统密钥环 `ai_api_key`。
 |------|------|--------|------|
 | `text_session.small_file_threshold` | `int` | `100000` | 小文件阈值（低于此大小不启用分片优化） |
 | `text_session.full_shuffle_threshold` | `int` | `1000000` | 全文乱序阈值 |
+
+## typing 子字段
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `typing.chord_mode_enabled` | `bool` | `false` | 和弦模式：一次提交按实际提交字符数计逻辑击键，多个物理按键组成的和弦不再逐个物理键累加。开启后击键、码长与键准按逻辑击键数计算；关闭保持普通统计 |
+
+> 开关实时生效（下一次统计事件起），已完成的会话不重新换算。由设置页开关经 `RuntimeConfig.update_typing_config()` 写入。参见 [typing-metrics.md](./typing-metrics.md)。
 
 ## UI 子字段
 

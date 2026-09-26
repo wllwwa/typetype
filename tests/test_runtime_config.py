@@ -1503,3 +1503,81 @@ class TestSourceRefreshOverrides:
             "mode": "interval",
             "interval_seconds": 3600,
         }
+
+
+# ---------------------------------------------------------------------------
+# 和弦模式（typing.chord_mode_enabled）
+# ---------------------------------------------------------------------------
+
+
+def test_typing_chord_mode_default_disabled():
+    config = RuntimeConfig()
+    assert config.typing.chord_mode_enabled is False
+    config2 = RuntimeConfig._from_dict({})
+    assert config2.typing.chord_mode_enabled is False
+
+
+def test_typing_chord_mode_reads_true_and_false():
+    assert (
+        RuntimeConfig._from_dict(
+            {"typing": {"chord_mode_enabled": True}}
+        ).typing.chord_mode_enabled
+        is True
+    )
+    assert (
+        RuntimeConfig._from_dict(
+            {"typing": {"chord_mode_enabled": False}}
+        ).typing.chord_mode_enabled
+        is False
+    )
+
+
+def test_typing_chord_mode_invalid_type_falls_back_to_default():
+    """非法类型经 _safe_bool 回退默认（False），非 dict 段同样容错。"""
+    assert (
+        RuntimeConfig._from_dict(
+            {"typing": {"chord_mode_enabled": "garbage"}}
+        ).typing.chord_mode_enabled
+        is False
+    )
+    assert (
+        RuntimeConfig._from_dict({"typing": "not-a-dict"}).typing.chord_mode_enabled
+        is False
+    )
+
+
+def test_typing_chord_mode_to_from_dict_roundtrip():
+    config = RuntimeConfig._from_dict({"typing": {"chord_mode_enabled": True}})
+    data = config._to_dict()
+    assert data["typing"] == {"chord_mode_enabled": True}
+    reloaded = RuntimeConfig._from_dict(data)
+    assert reloaded.typing.chord_mode_enabled is True
+
+
+def test_typing_chord_mode_persists_across_reload(tmp_path: Path):
+    path = tmp_path / "config.json"
+    config = RuntimeConfig.load_from_file(str(path))
+    config.update_typing_config(chord_mode_enabled=True)
+
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["typing"]["chord_mode_enabled"] is True
+
+    config2 = RuntimeConfig.load_from_file(str(path))
+    assert config2.typing.chord_mode_enabled is True
+
+    config2.update_typing_config(chord_mode_enabled=False)
+    config3 = RuntimeConfig.load_from_file(str(path))
+    assert config3.typing.chord_mode_enabled is False
+
+
+def test_typing_chord_mode_reload_reflects_file_changes(tmp_path: Path):
+    path = tmp_path / "config.json"
+    config = RuntimeConfig.load_from_file(str(path))
+    assert config.typing.chord_mode_enabled is False
+
+    updated = config._to_dict()
+    updated["typing"] = {"chord_mode_enabled": True}
+    path.write_text(json.dumps(updated), encoding="utf-8")
+
+    config.reload()
+    assert config.typing.chord_mode_enabled is True

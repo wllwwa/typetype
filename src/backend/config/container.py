@@ -434,6 +434,7 @@ def create_adapters(
         typing_service=services.typing,
         score_gateway=gateways.score,
         session_context=session_context,
+        runtime_config=runtime_config,
     )
     text_adapter = TextAdapter(
         runtime_config=runtime_config,

@@ -240,6 +240,17 @@ class TypingService:
         """累积键数。"""
         self._state.score_data.key_stroke_count += 1
 
+    def accumulate_logical_key(self, count: int = 1) -> None:
+        """和弦模式：按逻辑击键数累积。
+
+        一个和弦（一次提交的若干字符）视为若干次逻辑击键；非正数忽略。
+        正向逻辑击键与退格击键均由 TypingAdapter 在明确的输入事件边界调用，
+        不在此处做时间窗口去重，避免把普通输入误判为和弦。
+        """
+        if count <= 0:
+            return
+        self._state.score_data.key_stroke_count += count
+
     def accumulate_backspace(self) -> None:
         """累积退格键按下次数。"""
         self._state.score_data.backspace_count += 1

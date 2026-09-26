@@ -266,6 +266,18 @@ onActiveChanged: {
 
 **历史**：2026-04-16 发现，2026-04-19 拆分为两阶段。
 
+### ⚠️ 和弦模式的逻辑击键唯一计数点在 TypingAdapter
+
+**问题**：和弦模式下若 QML `LowerPane`、全局键盘监听器（Wayland/macOS）各自维护和弦计数，同一和弦会被重复累加（普通平台 `onTextChanged` 与全局监听 `keyPressed` 都会触发）。
+
+**正确做法**：
+- 和弦判定与逻辑击键计数**只在 `TypingAdapter`**：`handlePressed()` 在和弦模式直接返回（物理键不计数）；正向逻辑击键由 `handleCommittedText()` 按 `grow_length` 调用 `TypingService.accumulate_logical_key()`；退格由 `handleBackspace()` 计一次。
+- 开关从 `RuntimeConfig.typing.chord_mode_enabled` **实时读取**（`TypingAdapter` 注入 `runtime_config`），Bridge 只做属性/Slot 代理，不缓存模式。
+- 不要改用 `SessionStat.codeLength` 公式或事后回改 `key_stroke_count` 来「修正」和弦，否则速度/键准/峰值/历史快照口径不一致。
+- 普通模式行为必须保持不变（`accumulate_key()` 路径不动）。
+
+**历史**：2026-09-25 和弦模式功能落地。
+
 ### ⚠️ QThreadPool 提交后必须持有 worker 的 Python 引用直到 finished
 
 **问题**：`QRunnable` 交给 `QThreadPool.start()` 后，若 Python wrapper（连同它的 `WorkerSignals` QObject）被 GC，跨线程排队的 `succeeded`/`failed` 信号会随机丢失——实测表现：第一个槽（更新列表）已执行，第二个槽（清除刷新动画标记）不再执行，**组头刷新转圈永不停止**；只有单发超时定时器到点才清状态。

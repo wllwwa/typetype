@@ -14,6 +14,7 @@ FluentPage {
     property bool syncingAiControls: false
     property bool syncingZitiControls: false
     property bool syncingDaziControls: false
+    property bool syncingChordControls: false
     property bool _populatingDeviceList: false
     property bool updateChecking: false
     property bool updateDownloading: false
@@ -488,6 +489,41 @@ FluentPage {
                 onClicked: {
                     if (appBridge) appBridge.openFontFileDialog();
                 }
+            }
+        }
+    }
+
+    Text {
+        typography: Typography.Subtitle
+        text: qsTr("打字")
+        Layout.topMargin: 16
+        Layout.bottomMargin: 8
+    }
+
+    SettingCard {
+        Layout.fillWidth: true
+        title: qsTr("和弦模式")
+        icon.name: "ic_fluent_keyboard_20_regular"
+        description: qsTr("多个手指同时按下视为一次击键，并按和弦击键数重新计算码长")
+
+        RowLayout {
+            spacing: 8
+
+            Switch {
+                id: chordModeSwitch
+                checked: appBridge ? appBridge.chordModeEnabled : false
+                onCheckedChanged: {
+                    if (appBridge && !syncingChordControls)
+                        appBridge.setChordModeEnabled(checked)
+                }
+            }
+
+            Text {
+                typography: Typography.Caption
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: qsTr("开启后一个和弦只计一次逻辑击键，码长和击键速度按逻辑击键数计算；普通模式统计不变。")
+                color: Theme.currentTheme.colors.textSecondaryColor
             }
         }
     }
@@ -1428,6 +1464,12 @@ FluentPage {
     Connections {
         target: appBridge
         enabled: appBridge !== null
+
+        function onChordModeChanged() {
+            syncingChordControls = true
+            chordModeSwitch.checked = appBridge.chordModeEnabled
+            syncingChordControls = false
+        }
 
         function onWenlaiLoginResult(success, message) {
             wenlaiLoginButton.enabled = true

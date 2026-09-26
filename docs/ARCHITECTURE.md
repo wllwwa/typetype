@@ -170,6 +170,17 @@ QML 输入事件
   -> SqliteCharStatsRepository.save_batch()
 ```
 
+### 和弦模式统计口径
+
+`typing.chord_mode_enabled` 开启后，击键数口径从物理按键切换为**逻辑击键**：
+
+- 配置由 `TypingConfig`（`RuntimeConfig.typing`）持有，Bridge 只做属性代理（`chordModeEnabled` / `setChordModeEnabled`），经设置页开关写入。
+- `TypingAdapter` 在和弦模式下抑制 `handlePressed()` 的逐物理键累加（Wayland/macOS 全局监听器因此不会对和弦内每个物理键重复计数），改由文本提交路径按实际提交字符数调用 `TypingService.accumulate_logical_key()`；退格由 `handleBackspace()` 单独计一次。
+- 统计公式（速度、码长、键准）不变，仅式中「总按键数」改用逻辑击键数；QML 与全局监听器不各自维护和弦计数，唯一计数点在 `TypingAdapter`。
+- 开关实时生效（下一次统计事件起），已完成会话不重新换算，普通模式行为不变。
+
+> 指标定义见 [reference/typing-metrics.md](./reference/typing-metrics.md#和弦模式)，配置字段见 [reference/config.md](./reference/config.md#typing-子字段)。
+
 ### 薄弱字查询链路
 
 ```

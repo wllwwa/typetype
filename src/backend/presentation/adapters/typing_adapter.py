@@ -20,6 +20,7 @@ from PySide6.QtQuick import QQuickTextDocument
 
 from ...application.gateways.score_gateway import ScoreGateway
 from ...application.session_context import SourceMode, TypingSessionContext
+from ...config.runtime_config import RuntimeConfig
 from ...domain.services.typing_service import TypingService
 
 
@@ -46,11 +47,13 @@ class TypingAdapter(QObject):
         score_gateway: ScoreGateway,
         time_interval: float = 0.15,
         session_context: TypingSessionContext | None = None,
+        runtime_config: RuntimeConfig | None = None,
     ):
         super().__init__()
         self._typing_service = typing_service
         self._score_gateway = score_gateway
         self._session_context = session_context
+        self._runtime_config = runtime_config
         self.timeInterval = time_interval
 
         # Qt 相关
@@ -129,6 +132,13 @@ class TypingAdapter(QObject):
         """同步 backspace/correction 缓存，避免 clear() 后重复发射信号。"""
         self._last_backspace_count = self._typing_service.score_data.backspace_count
         self._last_correction_count = self._typing_service.score_data.correction_count
+
+    @property
+    def chord_mode_enabled(self) -> bool:
+        """当前是否开启和弦模式（实时读取配置，未注入配置时视为关闭）。"""
+        if self._runtime_config is None:
+            return False
+        return bool(self._runtime_config.typing.chord_mode_enabled)
 
     def _emit_typing_signals(self) -> None:
         self._typing_service.update_peaks()
@@ -285,6 +295,10 @@ class TypingAdapter(QObject):
             if self._is_paused and not self._second_timer.isActive():
                 self._second_timer.start()
                 self._set_paused(False)
+            # 和弦模式：物理按键不在此处计数，正向逻辑击键由文本提交统一统计
+            # （避免 Wayland/macOS 全局监听器对和弦内每个物理键重复累加）。
+            if self.chord_mode_enabled:
+                return
             self._typing_service.accumulate_key()
             self._typing_service.update_peaks()
             self.keyStrokeChanged.emit()
@@ -294,6 +308,9 @@ class TypingAdapter(QObject):
     def handleBackspace(self) -> None:
         if self._typing_service.state.is_started:
             self._typing_service.accumulate_backspace()
+            # 和弦模式：退格作为一次独立逻辑击键（普通模式已由 handlePressed 计入）
+            if self.chord_mode_enabled:
+                self._typing_service.accumulate_logical_key()
             self.backspaceChanged.emit()
             self.keyStrokeChanged.emit()
             self.keyAccuracyChanged.emit()
@@ -325,6 +342,11 @@ class TypingAdapter(QObject):
         char_updates, is_completed = self._typing_service.handle_committed_text(
             s, grow_length
         )
+
+        # 和弦模式：按本次实际提交的字符数计逻辑击键（和弦内多余物理按键不重复
+        # 累加）；删除/退格路径由 handleBackspace 单独计一次，避免重复计数。
+        if self.chord_mode_enabled and grow_length > 0:
+            self._typing_service.accumulate_logical_key(grow_length)
 
         if self._cursor and char_updates:
             self._cursor.beginEditBlock()

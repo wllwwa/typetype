@@ -120,6 +120,7 @@ class Bridge(QObject):
     correctionChanged = Signal()
     keyAccuracyChanged = Signal()
     typingPausedChanged = Signal()
+    chordModeChanged = Signal()
     weakestCharsLoaded = Signal(list)
     uploadResult = Signal(bool, str, int)  # (success, message, server_text_id)
     textFileLoaded = Signal(str)  # 文件导入：预览内容
@@ -932,6 +933,13 @@ class Bridge(QObject):
     def scriptsEnabled(self) -> bool:
         """ott-script（L3）脚本是否启用。"""
         return self._text_adapter.runtime_config.ott.scripts_enabled
+
+    @Property(bool, notify=chordModeChanged)
+    def chordModeEnabled(self) -> bool:
+        """和弦模式是否开启（多个物理键组成的和弦只计逻辑击键）。"""
+        rc = getattr(self._text_adapter, "runtime_config", None)
+        typing_cfg = getattr(rc, "typing", None)
+        return bool(getattr(typing_cfg, "chord_mode_enabled", False))
 
     @Property(str, notify=windowTitleChanged)
     def windowTitle(self) -> str:
@@ -2551,6 +2559,16 @@ class Bridge(QObject):
         """更新 ott-script（L3）开关并持久化。"""
         self._text_adapter.runtime_config.update_scripts_enabled(enabled)
         self.scriptsEnabledChanged.emit()
+
+    @Slot(bool)
+    def setChordModeEnabled(self, enabled: bool) -> None:
+        """更新和弦模式开关并持久化（实时读取配置，无需同步 Adapter）。"""
+        rc = getattr(self._text_adapter, "runtime_config", None)
+        updater = getattr(rc, "update_typing_config", None)
+        if updater is None:
+            return
+        updater(chord_mode_enabled=bool(enabled))
+        self.chordModeChanged.emit()
 
     # ------------------------------------------------------------------
     # OTT Repo 联邦目录 Slot

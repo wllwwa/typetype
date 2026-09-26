@@ -1733,3 +1733,98 @@ class TestBridgeRegistryRepoSignals:
         assert repos == [("https://a.org/repo.json", False)], (
             f"禁用订阅不应被复活: {repos}"
         )
+
+
+class TestBridgeChordMode:
+    """Bridge 和弦模式属性 / Slot / 平台按键口径。"""
+
+    def _make_bridge(self, tmp_path):
+        char_stats_service = CharStatsService(repository=NoopCharStatsRepository())
+        typing_service = TypingService(char_stats_service=char_stats_service)
+        runtime_config = RuntimeConfig(_config_path=str(tmp_path / "config.json"))
+
+        typing_adapter = TypingAdapter(
+            typing_service=typing_service,
+            score_gateway=MagicMock(spec=ScoreGateway),
+            runtime_config=runtime_config,
+        )
+        text_adapter = MagicMock()
+        text_adapter.runtime_config = runtime_config
+        char_stats_adapter = MagicMock()
+        listener = DummyListener()
+        bridge = Bridge(
+            typing_adapter=typing_adapter,
+            text_adapter=text_adapter,
+            char_stats_adapter=char_stats_adapter,
+            key_listener=cast(GlobalKeyListener, listener),
+        )
+        return bridge, typing_adapter, runtime_config
+
+    def test_defaults_to_disabled(self, tmp_path):
+        bridge, _, runtime_config = self._make_bridge(tmp_path)
+        assert bridge.chordModeEnabled is False
+        assert runtime_config.typing.chord_mode_enabled is False
+
+    def test_set_chord_mode_persists_and_emits(self, tmp_path):
+        bridge, typing_adapter, runtime_config = self._make_bridge(tmp_path)
+        captured: list[int] = []
+        bridge.chordModeChanged.connect(lambda: captured.append(1))
+
+        bridge.setChordModeEnabled(True)
+
+        assert runtime_config.typing.chord_mode_enabled is True
+        assert typing_adapter.chord_mode_enabled is True
+        assert bridge.chordModeEnabled is True
+        assert captured == [1]
+        # 持久化：重新加载仍保持
+        reloaded = RuntimeConfig.load_from_file(str(tmp_path / "config.json"))
+        assert reloaded.typing.chord_mode_enabled is True
+
+    def test_normal_mode_global_keys_still_count_each(self, tmp_path):
+        bridge, typing_adapter, _ = self._make_bridge(tmp_path)
+        typing_adapter.handleStartStatus(True)
+        bridge.setLowerPaneFocused(True)
+
+        bridge.on_key_received(65, "kbd0")
+        bridge.on_key_received(66, "kbd0")
+
+        assert typing_adapter.score_data.key_stroke_count == 2
+
+    def test_chord_mode_global_keys_not_double_counted(self, tmp_path):
+        bridge, typing_adapter, _ = self._make_bridge(tmp_path)
+        bridge.setChordModeEnabled(True)
+        typing_adapter.handleStartStatus(True)
+        bridge.setLowerPaneFocused(True)
+
+        # 一个和弦的多个物理键：不再逐个累加
+        bridge.on_key_received(65, "kbd0")
+        bridge.on_key_received(66, "kbd0")
+        assert typing_adapter.score_data.key_stroke_count == 0
+
+        # 上屏提交按字符数计逻辑击键
+        bridge.handleCommittedText("我", 1)
+        bridge.handleCommittedText("们", 1)
+        assert typing_adapter.score_data.key_stroke_count == 2
+
+    def test_chord_mode_modifier_and_navigation_still_filtered(self, tmp_path):
+        bridge, typing_adapter, _ = self._make_bridge(tmp_path)
+        bridge.setChordModeEnabled(True)
+        typing_adapter.handleStartStatus(True)
+        bridge.setLowerPaneFocused(True)
+
+        bridge.on_key_received(KeyCodes.EVDEV_LEFT_SHIFT, "kbd0")
+        bridge.on_key_received(KeyCodes.EVDEV_UP, "kbd0")
+
+        assert typing_adapter.is_started is True
+        assert typing_adapter.score_data.key_stroke_count == 0
+
+    def test_chord_mode_backspace_counts_one_logical_key(self, tmp_path):
+        bridge, typing_adapter, _ = self._make_bridge(tmp_path)
+        bridge.setChordModeEnabled(True)
+        typing_adapter.handleStartStatus(True)
+        bridge.setLowerPaneFocused(True)
+
+        bridge.on_key_received(KeyCodes.EVDEV_BACKSPACE, "kbd0")
+
+        assert typing_adapter.score_data.backspace_count == 1
+        assert typing_adapter.score_data.key_stroke_count == 1

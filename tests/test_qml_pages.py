@@ -280,6 +280,20 @@ def test_settings_page_exposes_ziti_controls():
     assert "zitiSchemesLoaded" in BRIDGE_SIGNALS
 
 
+def test_settings_page_exposes_chord_mode_controls():
+    page_qml = QML_DIR / "pages/SettingsPage.qml"
+    source = page_qml.read_text(encoding="utf-8")
+    refs = _get_qml_refs(source)
+
+    assert "chordModeEnabled" in refs and "chordModeEnabled" in BRIDGE_PROPERTIES
+    assert "setChordModeEnabled" in refs and "setChordModeEnabled" in BRIDGE_SLOTS
+    assert "chordModeChanged" in BRIDGE_SIGNALS
+    assert "function onChordModeChanged" in source
+    assert "和弦模式" in source
+    assert "syncingChordControls" in source
+    assert "appBridge.setChordModeEnabled(checked)" in source
+
+
 def test_all_appbridge_refs_are_valid_api():
     for qml_file in sorted(QML_DIR.rglob("*.qml")):
         source = qml_file.read_text(encoding="utf-8")

@@ -281,6 +281,21 @@ class TextSessionConfig:
 
 
 @dataclass
+class TypingConfig:
+    """打字统计配置。
+
+    - chord_mode_enabled：和弦模式开关。开启后一次提交按实际提交字符数
+      计逻辑击键，多个物理按键组成的和弦不再逐个物理键累加。
+    """
+
+    chord_mode_enabled: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.chord_mode_enabled, bool):
+            self.chord_mode_enabled = False
+
+
+@dataclass
 class RuntimeConfig:
     """运行时配置，从 JSON 文件加载（schema_version=2，ADR-013 决策 3/4）。"""
 
@@ -305,6 +320,7 @@ class RuntimeConfig:
     ai: AiConfig = field(default_factory=AiConfig)
     dazi: DaziConfig = field(default_factory=DaziConfig)
     text_session: TextSessionConfig = field(default_factory=TextSessionConfig)
+    typing: TypingConfig = field(default_factory=TypingConfig)
     ui: dict[str, Any] = field(
         default_factory=dict
     )  # UI 配置（主题/外观等），RinUI 通过桥写入
@@ -737,6 +753,15 @@ class RuntimeConfig:
             ),
         )
 
+        typing_data = data.get("typing", {})
+        if not isinstance(typing_data, dict):
+            typing_data = {}
+        typing_cfg = TypingConfig(
+            chord_mode_enabled=cls._safe_bool(
+                typing_data.get("chord_mode_enabled"), False
+            ),
+        )
+
         ai_data = data.get("ai", {})
         if not isinstance(ai_data, dict):
             ai_data = {}
@@ -785,6 +810,7 @@ class RuntimeConfig:
             ai=ai,
             dazi=dazi,
             text_session=text_session,
+            typing=typing_cfg,
             ui=ui_data,
         )
 
@@ -944,6 +970,12 @@ class RuntimeConfig:
     def update_scripts_enabled(self, enabled: bool) -> None:
         """更新 ott-script（L3）开关并持久化到 config.json（ott 段）。"""
         self.ott.scripts_enabled = bool(enabled)
+        self._save_to_file()
+
+    def update_typing_config(self, *, chord_mode_enabled: bool | None = None) -> None:
+        """更新打字统计配置并持久化到 config.json（typing 段）。"""
+        if chord_mode_enabled is not None:
+            self.typing.chord_mode_enabled = bool(chord_mode_enabled)
         self._save_to_file()
 
     def add_blocked_content_hash(self, content_hash: str) -> None:
@@ -1186,6 +1218,7 @@ class RuntimeConfig:
             self.ai = updated.ai
             self.dazi = updated.dazi
             self.text_session = updated.text_session
+            self.typing = updated.typing
             self.ui = updated.ui
 
     def update_ui_config(self, **kwargs: Any) -> None:
@@ -1276,6 +1309,9 @@ class RuntimeConfig:
             "text_session": {
                 "small_file_threshold": self.text_session.small_file_threshold,
                 "full_shuffle_threshold": self.text_session.full_shuffle_threshold,
+            },
+            "typing": {
+                "chord_mode_enabled": self.typing.chord_mode_enabled,
             },
             "ui": self.ui,
         }

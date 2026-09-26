@@ -1,5 +1,5 @@
 # Bridge Slot / Signal 速查
-<!-- 状态: active | 最后验证: 2026-08-30 -->
+<!-- 状态: active | 最后验证: 2026-09-25 -->
 
 > Bridge 是 QML 能看到的唯一后端门面。全局对象名：`appBridge`
 > typetype-server 已移除（ADR-013）：登录/注册、服务端排行榜、远程文本列表、`base_url` 相关槽/信号/属性已删除。
@@ -47,6 +47,7 @@
 | `daziInputMethod` | `str` | 上传成绩使用的输入法名称 |
 | `daziCompetitionType` | `int` | 默认竞赛类型（0/2/4） |
 | `daziUploadEnabled` | `bool` | 是否允许显式上传成绩 |
+| `chordModeEnabled` | `bool` | 和弦模式开关（多个物理按键组成的和弦只计逻辑击键） |
 
 ## Signals（QML 通过 Connections 监听）
 
@@ -67,6 +68,7 @@
 | `sliceStatusChanged` | `(str status)` | 片进度更新（如 "载文模式: 第 3/5 片"） |
 | `textContentLoaded` | `(int text_id, str content, str title)` | 联邦 inline 条目内容到达（text_id 恒为 0） |
 | `keyAccuracyChanged` | 无 | 键准变化 |
+| `chordModeChanged` | 无 | 和弦模式开关变化 |
 | `wenlaiLoadFailed` | `(str message)` | 晴发文载文失败 |
 | `wenlaiLoadingChanged` | 无 | 晴发文加载状态变化 |
 | `wenlaiLoginResult` | `(bool success, str message)` | 晴发文登录结果 |
@@ -163,6 +165,7 @@
 | `updateDaziConfig` | `(str baseUrl, int competitionType, bool uploadEnabled)` | 更新并持久化 52dazi 非秘密配置 |
 | `updateDaziInputMethod` | `(str inputMethod)` | 更新上传成绩使用的输入法名称 |
 | `uploadDaziScore` | 无 | 显式上传当前已完成的 52dazi 全文赛文成绩 |
+| `setChordModeEnabled` | `(bool enabled)` | 更新和弦模式开关并持久化（发出 `chordModeChanged`） |
 
 ### OTT Repo 联邦目录 Slot（Phase 1）
 

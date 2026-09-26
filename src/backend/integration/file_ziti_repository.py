@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 from ..models.dto.ziti import ZitiScheme, ZitiSchemeData
@@ -26,6 +27,26 @@ class FileZitiRepository(ZitiRepository):
             scheme=ZitiScheme(name=path.stem, entry_count=len(hints)),
             hints=hints,
         )
+
+    def import_scheme(self, source_path: str) -> str:
+        """导入一个字提示方案到用户目录，并返回方案名称。"""
+        source = Path(source_path).expanduser().resolve()
+        if not source.is_file():
+            raise FileNotFoundError("字提示文件不存在")
+        if source.suffix.lower() != ".txt":
+            raise ValueError("字提示方案必须是 .txt 文件")
+
+        hints = self._parse_hints(self._read_text(source))
+        if not hints:
+            raise ValueError(
+                "文件中没有找到有效的字提示数据（格式应为：汉字<Tab>提示）"
+            )
+
+        self._scheme_dir.mkdir(parents=True, exist_ok=True)
+        target = self._scheme_dir / source.name
+        if source != target:
+            shutil.copy2(source, target)
+        return target.stem
 
     def _scheme_paths(self) -> list[Path]:
         if not self._scheme_dir.exists():

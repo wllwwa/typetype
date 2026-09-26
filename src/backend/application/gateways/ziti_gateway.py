@@ -13,3 +13,6 @@ class ZitiGateway:
 
     def load_scheme(self, name: str) -> ZitiSchemeData:
         return self._repository.load_scheme(name)
+
+    def import_scheme(self, source_path: str) -> str:
+        return self._repository.import_scheme(source_path)

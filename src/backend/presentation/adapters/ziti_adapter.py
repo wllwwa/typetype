@@ -12,6 +12,8 @@ class ZitiAdapter(QObject):
     schemesLoadFailed = Signal(str)
     schemeLoaded = Signal(str, int)
     schemeLoadFailed = Signal(str)
+    schemeImported = Signal(str)
+    schemeImportFailed = Signal(str)
     zitiStateChanged = Signal()
 
     def __init__(self, gateway: ZitiGateway) -> None:
@@ -21,6 +23,7 @@ class ZitiAdapter(QObject):
         self._enabled = False
         self._current_scheme = ""
         self._hints: dict[str, str] = {}
+        self._active_workers: set[ZitiWorker] = set()
 
     @property
     def enabled(self) -> bool:
@@ -43,6 +46,9 @@ class ZitiAdapter(QObject):
     def _load_scheme(self, name: str) -> ZitiSchemeData:
         return self._gateway.load_scheme(name)
 
+    def _import_scheme(self, source_path: str) -> str:
+        return self._gateway.import_scheme(source_path)
+
     def _on_schemes_loaded(self, schemes: list[dict]) -> None:
         self.schemesLoaded.emit(schemes)
 
@@ -52,12 +58,24 @@ class ZitiAdapter(QObject):
         self.zitiStateChanged.emit()
         self.schemeLoaded.emit(data.scheme.name, len(self._hints))
 
+    def _on_scheme_imported(self, name: str) -> None:
+        self.schemeImported.emit(name)
+        self.loadSchemes()
+        self.loadScheme(name)
+
+    def _start_worker(self, worker: ZitiWorker) -> None:
+        # 保持 Python worker 引用，避免其信号对象在线程结束前被回收。
+        worker.setAutoDelete(False)
+        self._active_workers.add(worker)
+        worker.signals.finished.connect(lambda: self._active_workers.discard(worker))
+        self._thread_pool.start(worker)
+
     @Slot()
     def loadSchemes(self) -> None:
         worker = ZitiWorker(task=self._list_schemes, error_prefix="加载字提示方案失败")
         worker.signals.succeeded.connect(self._on_schemes_loaded)
         worker.signals.failed.connect(self.schemesLoadFailed.emit)
-        self._thread_pool.start(worker)
+        self._start_worker(worker)
 
     @Slot(str)
     def loadScheme(self, name: str) -> None:
@@ -67,7 +85,17 @@ class ZitiAdapter(QObject):
         )
         worker.signals.succeeded.connect(self._on_scheme_loaded)
         worker.signals.failed.connect(self.schemeLoadFailed.emit)
-        self._thread_pool.start(worker)
+        self._start_worker(worker)
+
+    @Slot(str)
+    def importScheme(self, source_path: str) -> None:
+        worker = ZitiWorker(
+            task=lambda: self._import_scheme(source_path),
+            error_prefix="导入字提示方案失败",
+        )
+        worker.signals.succeeded.connect(self._on_scheme_imported)
+        worker.signals.failed.connect(self.schemeImportFailed.emit)
+        self._start_worker(worker)
 
     @Slot(bool)
     def setEnabled(self, enabled: bool) -> None:

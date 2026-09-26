@@ -50,3 +50,25 @@ def test_load_scheme_rejects_unknown_scheme(tmp_path: Path) -> None:
 
     with pytest.raises(FileNotFoundError, match="unknown ziti scheme"):
         repository.load_scheme("missing")
+
+
+def test_import_scheme_copies_valid_file_to_user_directory(tmp_path: Path) -> None:
+    source = tmp_path / "我的方案.txt"
+    source.write_text("中\tzhong\n", encoding="utf-8")
+    target_dir = tmp_path / "user-ziti"
+    repository = FileZitiRepository(target_dir)
+
+    name = repository.import_scheme(str(source))
+
+    assert name == "我的方案"
+    assert (target_dir / "我的方案.txt").read_text(encoding="utf-8") == "中\tzhong\n"
+    assert repository.load_scheme(name).hints == {"中": "zhong"}
+
+
+def test_import_scheme_rejects_file_without_valid_hints(tmp_path: Path) -> None:
+    source = tmp_path / "空方案.txt"
+    source.write_text("# comment\ninvalid line\n", encoding="utf-8")
+    repository = FileZitiRepository(tmp_path / "user-ziti")
+
+    with pytest.raises(ValueError, match="没有找到有效的字提示数据"):
+        repository.import_scheme(str(source))

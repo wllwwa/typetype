@@ -179,6 +179,8 @@ class Bridge(QObject):
     zitiSchemesLoadFailed = Signal(str)
     zitiSchemeLoaded = Signal(str, int)
     zitiSchemeLoadFailed = Signal(str)
+    zitiSchemeImported = Signal(str)
+    zitiSchemeImportFailed = Signal(str)
     zitiStateChanged = Signal()
     # 练单器信号
     trainersLoaded = Signal(list)
@@ -575,6 +577,12 @@ class Bridge(QObject):
         self._ziti_adapter.schemesLoadFailed.connect(self.zitiSchemesLoadFailed.emit)
         self._ziti_adapter.schemeLoaded.connect(self.zitiSchemeLoaded.emit)
         self._ziti_adapter.schemeLoadFailed.connect(self.zitiSchemeLoadFailed.emit)
+        scheme_imported = getattr(self._ziti_adapter, "schemeImported", None)
+        if scheme_imported is not None:
+            scheme_imported.connect(self.zitiSchemeImported.emit)
+        scheme_import_failed = getattr(self._ziti_adapter, "schemeImportFailed", None)
+        if scheme_import_failed is not None:
+            scheme_import_failed.connect(self.zitiSchemeImportFailed.emit)
         self._ziti_adapter.zitiStateChanged.connect(self.zitiStateChanged.emit)
 
     def _connect_trainer_signals(self) -> None:
@@ -1763,6 +1771,25 @@ class Bridge(QObject):
     def loadZitiScheme(self, name: str) -> None:
         if self._ziti_adapter:
             self._ziti_adapter.loadScheme(name)
+
+    @Slot(str)
+    def importZitiScheme(self, file_path: str) -> None:
+        if self._ziti_adapter:
+            self._ziti_adapter.importScheme(file_path)
+
+    @Slot()
+    def openZitiFileDialog(self) -> None:
+        """打开系统文件对话框导入字提示方案。"""
+        from PySide6.QtWidgets import QFileDialog
+
+        dialog = QFileDialog()
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        dialog.setNameFilter("字提示方案 (*.txt)")
+        dialog.setWindowTitle("导入字提示方案")
+        if dialog.exec():
+            files = dialog.selectedFiles()
+            if files:
+                self.importZitiScheme(files[0])
 
     @Slot(bool)
     def setZitiEnabled(self, enabled: bool) -> None:

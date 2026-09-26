@@ -13,6 +13,7 @@ FluentPage {
     property bool syncingWenlaiControls: false
     property bool syncingAiControls: false
     property bool syncingZitiControls: false
+    property string zitiImportStatus: ""
     property bool syncingDaziControls: false
     property bool syncingChordControls: false
     property bool _populatingDeviceList: false
@@ -990,6 +991,24 @@ FluentPage {
                         appBridge.loadZitiSchemes()
                 }
             }
+
+            Button {
+                text: qsTr("导入方案")
+                icon.name: "ic_fluent_folder_open_20_regular"
+                onClicked: {
+                    if (appBridge)
+                        appBridge.openZitiFileDialog()
+                }
+            }
+
+            Text {
+                visible: zitiImportStatus.length > 0
+                text: zitiImportStatus
+                typography: Typography.Caption
+                color: Theme.currentTheme.colors.textSecondaryColor
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+            }
         }
     }
 
@@ -1540,6 +1559,14 @@ FluentPage {
 
         function onZitiSchemesLoaded(items) {
             syncZitiSchemeModel(items)
+        }
+
+        function onZitiSchemeImported(name) {
+            zitiImportStatus = qsTr("已导入：") + name
+        }
+
+        function onZitiSchemeImportFailed(message) {
+            zitiImportStatus = message
         }
 
         function onZitiStateChanged() {
